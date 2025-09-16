@@ -91,7 +91,6 @@ class BlockonomicsPaymentDriver extends BaseDriver
 
     public function processWebhookRequest(PaymentWebhookRequest $request)
     {
-
         $company = $request->getCompany();
 
         // Re-introduce secret in a later stage if needed.
@@ -111,12 +110,17 @@ class BlockonomicsPaymentDriver extends BaseDriver
             $payment = Payment::query()
                 ->where('company_id', $company->id)
                 ->where('private_notes', "$addr - $value")
-                ->firstOrFail();
+                ->first();
         } else {
             $payment = Payment::query()
                 ->where('company_id', $company->id)
                 ->where('transaction_reference', $txid)
-                ->firstOrFail();
+                ->first();
+        }
+
+        // If payment doesn't exist yet, return success and let paymentResponse handle it
+        if (!$payment) {
+            return response()->json([], 200);
         }
 
         // Already completed payment, no need to update status
@@ -141,7 +145,25 @@ class BlockonomicsPaymentDriver extends BaseDriver
         if ($payment->status_id !== $statusId) {
             $payment->status_id = $statusId;
             $payment->save();
+
+            // Handle invoice logic here too when payment is completed
+            if ($statusId == Payment::STATUS_COMPLETED) {
+                $payment_hash = PaymentHash::where('payment_id', $payment->id)->first();
+                if ($payment_hash) {
+                    $invoice = $payment_hash->fee_invoice;
+                    if ($invoice) {
+                        $invoice_balance = $invoice->balance;
+                        if ($payment->amount >= $invoice_balance) {
+                            $invoice->status_id = Invoice::STATUS_PAID;
+                        } else {
+                            $invoice->status_id = Invoice::STATUS_PARTIAL;
+                        }
+                        $invoice->save();
+                    }
+                }
+            }
         }
+
         return response()->json([], 200);
 
     }

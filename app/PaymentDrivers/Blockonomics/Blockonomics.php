@@ -16,6 +16,8 @@ use App\Models\Payment;
 use App\Models\SystemLog;
 use App\Models\GatewayType;
 use App\Models\PaymentType;
+use App\Models\PaymentHash;
+use App\Models\Invoice;
 use App\Jobs\Util\SystemLogger;
 use App\Utils\Traits\MakesHash;
 use App\Exceptions\PaymentFailed;
@@ -128,8 +130,8 @@ class Blockonomics implements LivewireMethodInterface
 
     public function paymentResponse(PaymentResponseRequest $request)
     {
+
         $request->validate([
-            'payment_hash' => ['required'],
             'amount' => ['required'],
             'currency' => ['required'],
             'txid' => ['required'],
@@ -178,6 +180,28 @@ class Blockonomics implements LivewireMethodInterface
             $payment = $this->blockonomics->createPayment($data, $statusId);
             $payment->private_notes = "{$request->btc_address} - {$request->btc_amount}";
             $payment->save();
+
+
+            $payment_hash = PaymentHash::where('hash', $request->payment_hash)->firstOrFail();
+            $invoice = $payment_hash->fee_invoice;
+
+            if ($invoice) {
+                if ($request->status == 2) {
+                    // Payment confirmed - set proper status
+                    $invoice_balance = $invoice->balance;
+
+                    if ($fiat_amount >= $invoice_balance) {
+                        $invoice->status_id = Invoice::STATUS_PAID;
+                    } else {
+                        $invoice->status_id = Invoice::STATUS_PARTIAL;
+                    }
+                } else {
+                    // Payment pending - revert any auto-completion and keep invoice as sent
+                    $invoice->status_id = Invoice::STATUS_SENT;
+                }
+
+                $invoice->save();
+            }
 
             SystemLogger::dispatch(
                 ['response' => $payment, 'data' => $data],
