@@ -130,7 +130,6 @@ class Blockonomics implements LivewireMethodInterface
 
     public function paymentResponse(PaymentResponseRequest $request)
     {
-
         $request->validate([
             'amount' => ['required'],
             'currency' => ['required'],
@@ -181,26 +180,37 @@ class Blockonomics implements LivewireMethodInterface
             $payment->private_notes = "{$request->btc_address} - {$request->btc_amount}";
             $payment->save();
 
-
+            // InvoiceNinja has a bug where it marks invoices as "Paid" even for pending payments
+            // We need to manually override this behavior
             $payment_hash = PaymentHash::where('hash', $request->payment_hash)->firstOrFail();
             $invoice = $payment_hash->fee_invoice;
 
             if ($invoice) {
                 if ($request->status == 2) {
                     // Payment confirmed - set proper status
-                    $invoice_balance = $invoice->balance;
+                    // Use invoice->amount (total) instead of balance (remaining after payment)
+                    $invoice_total = $invoice->amount;
 
-                    if ($fiat_amount >= $invoice_balance) {
+                    if ($fiat_amount >= $invoice_total) {
                         $invoice->status_id = Invoice::STATUS_PAID;
                     } else {
                         $invoice->status_id = Invoice::STATUS_PARTIAL;
+                        // Manually set balance for partial payments to fix InvoiceNinja's calculation bug
+                        $invoice->balance = $invoice_total - $fiat_amount;
                     }
                 } else {
-                    // Payment pending - revert any auto-completion and keep invoice as sent
+                    // Payment pending - override InvoiceNinja's automatic calculation
+                    // and keep invoice as sent until payment is actually confirmed
                     $invoice->status_id = Invoice::STATUS_SENT;
+                    // For pending payments, set balance to show the remaining amount after this payment
+                    $invoice_total = $invoice->amount;
+                    $invoice->balance = $invoice_total - $fiat_amount;
                 }
 
                 $invoice->save();
+
+                // Force InvoiceNinja to recalculate balance and amounts properly
+                $invoice->refresh();
             }
 
             SystemLogger::dispatch(
@@ -220,6 +230,8 @@ class Blockonomics implements LivewireMethodInterface
             throw new PaymentFailed('Error during Blockonomics payment : ' . $e->getMessage());
         }
     }
+
+
 
     // Not supported yet
     public function refund(Payment $payment, $amount)

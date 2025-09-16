@@ -118,7 +118,7 @@ class BlockonomicsPaymentDriver extends BaseDriver
                 ->first();
         }
 
-        // If payment doesn't exist yet, return success and let paymentResponse handle it
+        // If payment doesn't exist yet, return success and let paymentResponse handle creation
         if (!$payment) {
             return response()->json([], 200);
         }
@@ -146,18 +146,25 @@ class BlockonomicsPaymentDriver extends BaseDriver
             $payment->status_id = $statusId;
             $payment->save();
 
-            // Handle invoice logic here too when payment is completed
-            if ($statusId == Payment::STATUS_COMPLETED) {
-                $payment_hash = PaymentHash::where('payment_id', $payment->id)->first();
-                if ($payment_hash) {
-                    $invoice = $payment_hash->fee_invoice;
-                    if ($invoice) {
-                        $invoice_balance = $invoice->balance;
-                        if ($payment->amount >= $invoice_balance) {
+            // Handle invoice logic when payment status changes
+            $payment_hash = PaymentHash::where('payment_id', $payment->id)->first();
+            if ($payment_hash) {
+                $invoice = $payment_hash->fee_invoice;
+                if ($invoice) {
+                    if ($statusId == Payment::STATUS_COMPLETED) {
+                        // Payment confirmed - update invoice to paid/partial
+                        // Use invoice->amount (total) instead of balance (remaining after payment)
+                        $invoice_total = $invoice->amount;
+                        if ($payment->amount >= $invoice_total) {
                             $invoice->status_id = Invoice::STATUS_PAID;
                         } else {
                             $invoice->status_id = Invoice::STATUS_PARTIAL;
                         }
+                        $invoice->save();
+                    } else {
+                        // Payment reverted to pending - keep invoice as sent
+                        // (This shouldn't normally happen, but handle it just in case)
+                        $invoice->status_id = Invoice::STATUS_SENT;
                         $invoice->save();
                     }
                 }
@@ -165,9 +172,7 @@ class BlockonomicsPaymentDriver extends BaseDriver
         }
 
         return response()->json([], 200);
-
     }
-
 
     public function refund(Payment $payment, $amount, $return_client_response = false)
     {
