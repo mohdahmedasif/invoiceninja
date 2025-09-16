@@ -231,8 +231,6 @@ class Blockonomics implements LivewireMethodInterface
         }
     }
 
-
-
     // Not supported yet
     public function refund(Payment $payment, $amount)
     {

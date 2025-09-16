@@ -101,69 +101,51 @@ class BlockonomicsPaymentDriver extends BaseDriver
         //     throw new PaymentFailed('Secret does not match');
         // }
 
-        $txid = $request->txid;
-        $value = $request->value;
+        $txid   = $request->txid;
+        $value  = $request->value;
         $status = $request->status;
-        $addr = $request->addr;
+        $addr   = $request->addr;
 
-        if ($txid === $this->test_txid) {
-            $payment = Payment::query()
+        $payment = ($txid === $this->test_txid)
+            ? Payment::query()
                 ->where('company_id', $company->id)
                 ->where('private_notes', "$addr - $value")
-                ->first();
-        } else {
-            $payment = Payment::query()
+                ->first()
+            : Payment::query()
                 ->where('company_id', $company->id)
                 ->where('transaction_reference', $txid)
                 ->first();
-        }
 
-        // If payment doesn't exist yet, return success and let paymentResponse handle creation
-        if (!$payment) {
+        // If payment doesn't exist yet, let paymentResponse handle creation
+        if (!$payment || $payment->status_id == Payment::STATUS_COMPLETED) {
             return response()->json([], 200);
         }
 
-        // Already completed payment, no need to update status
-        if ($payment->status_id == Payment::STATUS_COMPLETED) {
-            return response()->json([], 200);
-        }
-
-        switch ($status) {
-            case 0:
-                $statusId = Payment::STATUS_PENDING;
-                break;
-            case 1:
-                $statusId = Payment::STATUS_PENDING;
-                break;
-            case 2:
-                $statusId = Payment::STATUS_COMPLETED;
-                break;
-            default:
-                $statusId = Payment::STATUS_PENDING;
-        }
+        $statusId = ((int) $status === 2)
+            ? Payment::STATUS_COMPLETED
+            : Payment::STATUS_PENDING;
 
         if ($payment->status_id !== $statusId) {
             $payment->status_id = $statusId;
             $payment->save();
 
-            // Handle invoice logic when payment status changes
-            $payment_hash = PaymentHash::where('payment_id', $payment->id)->first();
-            if ($payment_hash) {
-                $invoice = $payment_hash->fee_invoice;
-                if ($invoice) {
-                    if ($statusId == Payment::STATUS_COMPLETED) {
-                        // Payment confirmed - update invoice to paid/partial
-                        // Use invoice->amount (total) instead of balance (remaining after payment)
+            // Handle invoice logic
+            if ($payment_hash = PaymentHash::where('payment_id', $payment->id)->first()) {
+                if ($invoice = $payment_hash->fee_invoice) {
+                    if ($statusId === Payment::STATUS_COMPLETED) {
                         $invoice_total = $invoice->amount;
-                        if ($payment->amount >= $invoice_total) {
-                            $invoice->status_id = Invoice::STATUS_PAID;
-                        } else {
-                            $invoice->status_id = Invoice::STATUS_PARTIAL;
-                        }
+                        $invoice->status_id = ($payment->amount >= $invoice_total)
+                            ? Invoice::STATUS_PAID
+                            : Invoice::STATUS_PARTIAL;
                         $invoice->save();
+
+                        // Recalculate for partial payments
+                        if ($payment->amount < $invoice_total) {
+                            $invoice->refresh();
+                            $invoice->calc()->getInvoice();
+                        }
                     } else {
-                        // Payment reverted to pending - keep invoice as sent
-                        // (This shouldn't normally happen, but handle it just in case)
+                        // Payment reverted to pending
                         $invoice->status_id = Invoice::STATUS_SENT;
                         $invoice->save();
                     }
