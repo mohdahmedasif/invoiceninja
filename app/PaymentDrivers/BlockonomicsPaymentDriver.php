@@ -189,29 +189,28 @@ class BlockonomicsPaymentDriver extends BaseDriver
             ]);
         }
 
-        // Force InvoiceNinja to recalculate everything
+        // Force InvoiceNinja to recalculate the invoice balance and amounts
         $invoice = $invoice->calc()->getInvoice();
-        $invoice->service()->markPaid()->save();
 
-        // Alternative approach - manually update if calc() doesn't work
+        // If calc() didn't update the balance properly, do manual calculation
         if ($invoice->balance == $original_balance) {
-            // Calc didn't work, do manual calculation
+            // Manual calculation approach
             $total_payments = $invoice->payments()
                 ->where('status_id', Payment::STATUS_COMPLETED)
                 ->sum('payments.amount');
 
             $invoice->balance = $invoice->amount - $total_payments;
             $invoice->paid_to_date = $total_payments;
-
-            // Set correct status
-            if ($invoice->balance <= 0) {
-                $invoice->status_id = Invoice::STATUS_PAID;
-            } else {
-                $invoice->status_id = Invoice::STATUS_PARTIAL;
-            }
-
-            $invoice->save();
         }
+
+        // Set correct status based on final balance
+        if ($invoice->balance <= 0) {
+            $invoice->status_id = Invoice::STATUS_PAID;
+        } else {
+            $invoice->status_id = Invoice::STATUS_PARTIAL;
+        }
+
+        $invoice->save();
 
         // Log the successful payment confirmation
         SystemLogger::dispatch(
