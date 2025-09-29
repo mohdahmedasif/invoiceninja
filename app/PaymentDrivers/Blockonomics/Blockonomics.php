@@ -172,37 +172,10 @@ class Blockonomics implements LivewireMethodInterface
             $payment_hash = PaymentHash::where('hash', $request->payment_hash)->firstOrFail();
             $invoice = $payment_hash->fee_invoice ?? $payment_hash->paymentable;
 
-            // Store original invoice state for pending payments
-            $original_balance = $invoice->balance;
-            $original_status = $invoice->status_id;
-
             // Create the payment - let InvoiceNinja handle the initial processing
             $payment = $this->blockonomics->createPayment($data, $statusId);
             $payment->private_notes = "{$request->btc_address} - {$request->btc_amount}";
             $payment->save();
-
-            // Alternative: Get invoice from payment after creation
-            $invoice = $invoice ?? $payment->invoices()->first();
-
-            // Refresh invoice to get InvoiceNinja's automatic updates
-            $invoice->refresh();
-
-            // Handle invoice status based on payment confirmation
-            if ($request->status == 2) {
-                // Payment is confirmed - let InvoiceNinja's natural flow work
-                // Just ensure status is correct based on balance
-                if ($invoice->balance <= 0) {
-                    $invoice->status_id = Invoice::STATUS_PAID;
-                } else {
-                    $invoice->status_id = Invoice::STATUS_PARTIAL;
-                }
-                $invoice->save();
-            } else {
-                // Payment is pending - revert InvoiceNinja's automatic changes
-                $invoice->status_id = $original_status ?: Invoice::STATUS_SENT;
-                $invoice->balance = $original_balance;
-                $invoice->save();
-            }
 
             SystemLogger::dispatch(
                 ['response' => $payment, 'data' => $data],
