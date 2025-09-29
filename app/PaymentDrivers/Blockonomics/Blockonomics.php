@@ -172,10 +172,6 @@ class Blockonomics implements LivewireMethodInterface
             $payment_hash = PaymentHash::where('hash', $request->payment_hash)->firstOrFail();
             $invoice = $payment_hash->fee_invoice ?? $payment_hash->paymentable;
 
-            if (!$invoice) {
-                throw new PaymentFailed('No invoice found for payment hash');
-            }
-
             // Store original invoice state for pending payments
             $original_balance = $invoice->balance;
             $original_status = $invoice->status_id;
