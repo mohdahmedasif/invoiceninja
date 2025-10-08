@@ -289,14 +289,26 @@ class Storecove
 
         $scheme = $this->router->resolveTaxScheme($data['country'], $data['classification']);
 
+        $add_identifier_response = null;
+
         $add_identifier_response = $this->addIdentifier(
             legal_entity_id: $legal_entity_response['id'],
             identifier: $data['classification'] === 'individual' ? str_replace('/', '', $data['id_number']) : str_replace(" ", "", $data['vat_number']),
             scheme: $scheme,
         );
-
+    
         if (! is_array($add_identifier_response)) {
             return $add_identifier_response;
+        }
+
+        if($data['country'] == "BE"){
+            $scheme = "BE:EN";
+            $identifier = $data['classification'] === 'individual' ? str_replace('/', '', $data['id_number']) : str_replace([" ","BE"], "", $data['vat_number']);
+            $add_identifier_response = $this->addIdentifier(
+                legal_entity_id: $legal_entity_response['id'],
+                identifier: $identifier,
+                scheme: $scheme,
+            );
         }
 
         if($data['country'] == "DK"){
@@ -435,7 +447,7 @@ class Storecove
             return $data;
         }
 
-        $this->deleteIdentifier($legal_entity_id);
+        // $this->deleteIdentifier($legal_entity_id);
 
         return $r;
     }

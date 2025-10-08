@@ -630,12 +630,23 @@ class Mutator implements MutatorInterface
             $identifier = $this->getClientPublicIdentifier($code);
         }
 
-        $identifier = str_ireplace(["FR","BE"], "", $identifier);
+        $identifier = str_ireplace(["FR", "BE"], "", $identifier);
         $identifier = preg_replace("/[^a-zA-Z0-9]/", "", $identifier);
 
+        //Check the recipient is on the network, and perhaps, adjust the identifier accordingly
+        // if(!$this->storecove->exists($identifier, $code) && $this->invoice->client->country->iso_3166_2 == "BE"){
+
+        //     nlog("identifier not found, adjusting for BE");
+        //     $code = "BE:VAT";
+        //     $identifier = "BE".$identifier;
+
+        // }
+        
+        
         $this->setStorecoveMeta($this->buildRouting([
                 ["scheme" => $code, "id" => $identifier]
             ]));
+    
 
         return $this;
     }
