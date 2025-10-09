@@ -18,6 +18,11 @@ trait ActionsInvoice
 {
     public function invoiceDeletable($invoice): bool
     {
+        //Cancelled invoices are not deletable if verifactu is enabled
+        if($invoice->company->verifactuEnabled() && $invoice->status_id == Invoice::STATUS_CANCELLED) {
+            return false;
+        }
+
         if ($invoice->status_id <= Invoice::STATUS_SENT &&
             $invoice->is_deleted == false &&
             $invoice->deleted_at == null &&

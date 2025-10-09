@@ -79,6 +79,8 @@ class SystemLog extends Model
 
     public const CATEGORY_LOG = 6;
 
+    public const CATEGORY_VERIFACTU = 7;
+
     /* Event IDs*/
     public const EVENT_PAYMENT_RECONCILIATION_FAILURE = 10;
 
@@ -115,6 +117,10 @@ class SystemLog extends Model
     public const EVENT_USER = 61;
 
     public const EVENT_INBOUND_MAIL_BLOCKED = 62;
+
+    public const EVENT_VERIFACTU_FAILURE = 70;
+
+    public const EVENT_VERIFACTU_SUCCESS = 71;
 
     /*Type IDs*/
     public const TYPE_PAYPAL = 300;
@@ -180,6 +186,12 @@ class SystemLog extends Model
     public const TYPE_LOGIN_FAILURE = 801;
 
     public const TYPE_GENERIC = 900;
+
+    public const TYPE_VERIFACTU_CANCELLATION = 1000;
+
+    public const TYPE_VERIFACTU_INVOICE = 1001;
+
+    public const TYPE_VERIFACTU_RECTIFICATION = 1002;
 
     protected $fillable = [
         'client_id',

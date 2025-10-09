@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Events\Invoice\InvoiceWasArchived;
 use App\Jobs\Inventory\AdjustProductInventory;
 use App\Libraries\Currency\Conversion\CurrencyApi;
+use App\Services\EDocument\Standards\Verifactu\SendToAeat;
 
 class InvoiceService
 {
@@ -234,20 +235,23 @@ class InvoiceService
         return $this;
     }
 
-    public function handleCancellation()
+    public function handleCancellation(?string $reason = null)
     {
         $this->removeUnpaidGatewayFees();
 
-        $this->invoice = (new HandleCancellation($this->invoice))->run();
+        $this->invoice = (new HandleCancellation($this->invoice, $reason))->run();
 
         return $this;
     }
 
     public function markDeleted()
     {
-        // $this->removeUnpaidGatewayFees();
 
         $this->invoice = (new MarkInvoiceDeleted($this->invoice))->run();
+
+        if($this->invoice->company->verifactuEnabled()) {
+            $this->cancelVerifactu();
+        }
 
         return $this;
     }
@@ -672,6 +676,65 @@ class InvoiceService
 
         return $this;
 
+    }
+
+    /**
+     * sendVerifactu
+     *  
+     * @return self
+     */
+    public function sendVerifactu(): self
+    {
+        SendToAeat::dispatch($this->invoice->id, $this->invoice->company, 'create');
+        
+        return $this;
+    }
+    
+    /**
+     * cancelVerifactu
+     * 
+     * @return self
+     */
+    public function cancelVerifactu(): self
+    {
+        SendToAeat::dispatch($this->invoice->id, $this->invoice->company, 'cancel');
+
+        return $this;
+    }
+    
+    /**
+     * Handles all requirements for verifactu saves
+     * 
+     * @param  array $invoice_array
+     * @param  bool $new_model
+     * @return self
+     */
+    public function modifyVerifactuWorkflow(array $invoice_array, bool $new_model): self
+    {
+        if($new_model && $this->invoice->amount >= 0) {
+            $this->invoice->backup->document_type = 'F1';
+            $this->invoice->backup->adjustable_amount = $this->invoice->amount;
+            $this->invoice->backup->parent_invoice_number = $this->invoice->number;
+            $this->invoice->saveQuietly();
+        }
+        elseif(isset($invoice_array['modified_invoice_id'])) {
+            $modified_invoice = Invoice::withTrashed()->find($this->decodePrimaryKey($invoice_array['modified_invoice_id']));
+            $modified_invoice->backup->child_invoice_ids->push($this->invoice->hashed_id);
+            $modified_invoice->backup->adjustable_amount += $this->invoice->amount;
+            $modified_invoice->save();
+
+            $this->markSent();
+            //Update the client balance by the delta amount from the previous invoice to this one.
+            $this->invoice->backup->parent_invoice_id = $modified_invoice->hashed_id;
+            $this->invoice->backup->document_type = 'R2';
+            $this->invoice->backup->parent_invoice_number = $modified_invoice->number;
+            $this->invoice->saveQuietly();
+
+            $this->invoice->client->service()->updateBalance(round(($this->invoice->amount - $modified_invoice->amount), 2));
+            $this->sendVerifactu();
+        }
+
+        return $this;
     }
 
     /**

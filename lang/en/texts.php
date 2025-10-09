@@ -5636,6 +5636,18 @@ $lang = array(
     'einvoice_received_body' => 'You have received :count new E-Invoice/s.<br><br>Login to view.',
     'download_files_too_large' => 'Some files were too large to attach directly to the email. Please use the links below to download these individually.',
 
+    'restore_disabled_verifactu' => 'You cannot restore an invoice once it has been deleted',
+    'delete_disabled_verifactu' => 'You cannot delete an invoice once it has been cancelled or modified',
+    'rectify' => 'Rectificar',
+    'verifactu_invoice_send_success' => 'Invoice :invoice for :client sent to AEAT successfully',
+    'verifactu_invoice_sent_failure' => 'Invoice :invoice for :client failed to send to AEAT :notes',
+    'verifactu_cancellation_send_success' => 'Invoice cancellation for :invoice sent to AEAT successfully',
+    'verifactu_cancellation_send_failure' => 'Invoice cancellation for :invoice failed to send to AEAT :notes',
+    'verifactu' => 'Verifactu',
+    'activity_150' => 'E-Invoice :invoice for :client sent to AEAT successfully',
+    'activity_151' => 'E-Invoice :invoice for :client failed to send to AEAT :notes',
+    'activity_152' => 'Invoice cancellation for :invoice sent to AEAT successfully',
+    'activity_153' => 'Invoice cancellation for :invoice failed to send to AEAT :notes',
 );
 
 return $lang;

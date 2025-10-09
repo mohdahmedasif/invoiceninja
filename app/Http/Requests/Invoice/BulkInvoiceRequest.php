@@ -14,6 +14,8 @@ namespace App\Http\Requests\Invoice;
 
 use App\Http\Requests\Request;
 use App\Exceptions\DuplicatePaymentException;
+use App\Http\ValidationRules\Invoice\RestoreDisabledRule;
+use Illuminate\Validation\Rule;
 
 class BulkInvoiceRequest extends Request
 {
@@ -24,9 +26,12 @@ class BulkInvoiceRequest extends Request
 
     public function rules()
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+
         return [
-            'action' => 'required|string',
-            'ids' => 'required|array',
+            'action' => ['required', 'bail','string', new RestoreDisabledRule()],
+            'ids' => ['required', 'bail', 'array'],
             'email_type' => 'sometimes|in:reminder1,reminder2,reminder3,reminder_endless,custom1,custom2,custom3,invoice,quote,credit,payment,payment_partial,statement,purchase_order',
             'template' => 'sometimes|string',
             'template_id' => 'sometimes|string',

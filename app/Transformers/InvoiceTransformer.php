@@ -172,7 +172,7 @@ class InvoiceTransformer extends EntityTransformer
             'auto_bill_enabled' => (bool) $invoice->auto_bill_enabled,
             'tax_info' => $invoice->tax_data ?: new \stdClass(),
             'e_invoice' => $invoice->e_invoice ?: new \stdClass(),
-            'backup' => $invoice->backup ?: new \stdClass(),
+            'backup' => $invoice->backup,
             'location_id' => $this->encodePrimaryKey($invoice->location_id),
         ];
 

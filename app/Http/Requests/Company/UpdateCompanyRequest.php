@@ -213,6 +213,12 @@ class UpdateCompanyRequest extends Request
                     $settings[$protected_var] = str_replace("script", "", $settings[$protected_var]);
                 }
             }
+
+            if($this->company->settings->e_invoice_type == 'VERIFACTU') {
+                $settings['lock_invoices'] = 'when_sent';
+                $settings['e_invoice_type'] = 'VERIFACTU';
+            }
+            
         }
 
         if (isset($settings['email_style_custom'])) {

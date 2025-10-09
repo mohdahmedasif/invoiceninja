@@ -82,8 +82,13 @@ class TriggeredActions extends AbstractService
             $company->save();
         }
 
-        if ($this->request->has('retry_e_send') && $this->request->input('retry_e_send') == 'true' && !isset($this->invoice->backup->guid) && $this->invoice->client->peppolSendingEnabled()) {
-            \App\Services\EDocument\Jobs\SendEDocument::dispatch(get_class($this->invoice), $this->invoice->id, $this->invoice->company->db);
+        if($this->request->has('retry_e_send') && $this->request->input('retry_e_send') == 'true' && strlen($this->invoice->backup->guid ?? '') == 0) {
+            if($this->invoice->client->peppolSendingEnabled()) {
+                \App\Services\EDocument\Jobs\SendEDocument::dispatch(get_class($this->invoice), $this->invoice->id, $this->invoice->company->db);
+            }
+            elseif($this->invoice->company->verifactuEnabled()) {
+                $this->invoice->service()->sendVerifactu();
+            }
         }
 
         if ($this->request->has('redirect')) {
@@ -91,9 +96,9 @@ class TriggeredActions extends AbstractService
             $redirectUrl = urldecode($this->request->input('redirect'));
 
             if (filter_var($redirectUrl, FILTER_VALIDATE_URL)) {
-                $backup = ($this->invoice->backup && is_object($this->invoice->backup)) ? $this->invoice->backup : new \stdClass();
-                $backup->redirect = $redirectUrl;
-                $this->invoice->backup = $backup;
+                // $backup = ($this->invoice->backup && is_object($this->invoice->backup)) ? $this->invoice->backup : new \stdClass();
+                // $backup->redirect = $redirectUrl;
+                $this->invoice->backup->redirect = $redirectUrl;
                 $this->invoice->saveQuietly();
             }
 

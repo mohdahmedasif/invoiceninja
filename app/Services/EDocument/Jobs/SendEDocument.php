@@ -60,7 +60,7 @@ class SendEDocument implements ShouldQueue
 
         $model = $this->entity::withTrashed()->find($this->id);
 
-        if (isset($model->backup->guid) && is_string($model->backup->guid)) {
+        if(isset($model->backup->guid) && is_string($model->backup->guid) && strlen($model->backup->guid) > 3){
             nlog("already sent!");
             return;
         }
@@ -220,9 +220,9 @@ class SendEDocument implements ShouldQueue
 
         if ($activity_id == Activity::EINVOICE_DELIVERY_SUCCESS) {
 
-            $backup = ($model->backup && is_object($model->backup)) ? $model->backup : new \stdClass();
-            $backup->guid = str_replace('"', '', $notes);
-            $model->backup = $backup;
+            // $backup = ($model->backup && is_object($model->backup)) ? $model->backup : new \stdClass();
+            // $backup->guid = str_replace('"', '', $notes);
+            $model->backup->guid = str_replace('"', '', $notes);
             $model->saveQuietly();
 
         }

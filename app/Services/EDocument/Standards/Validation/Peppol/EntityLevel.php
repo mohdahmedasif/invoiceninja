@@ -22,10 +22,11 @@ use App\Models\Invoice;
 use App\Models\PurchaseOrder;
 use App\Services\EDocument\Standards\Peppol;
 use App\Services\EDocument\Standards\Validation\XsltDocumentValidator;
+use App\Services\EDocument\Standards\Validation\EntityLevelInterface;
 use Illuminate\Support\Facades\App;
 use XSLTProcessor;
 
-class EntityLevel
+class EntityLevel implements EntityLevelInterface
 {
     private array $eu_country_codes = [
             'AT', // Austria
