@@ -30,7 +30,6 @@ class InvoiceBackupCast implements CastsAttributes
 
     public function set($model, string $key, $value, array $attributes)
     {
-        nlog($value);
         if (is_null($value)) {
             return [$key => null];
         }
