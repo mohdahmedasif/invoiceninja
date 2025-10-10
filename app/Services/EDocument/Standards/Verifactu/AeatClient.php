@@ -20,6 +20,11 @@ class AeatClient
 
     private string $sandbox_url = 'https://prewww1.aeat.es/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP';
 
+    public string $base_qr_url = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?csv=%s&nif=%s&numserie=%s&fecha=%s&importe=%s';
+    
+    private string $sandbox_qr_url = 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?csv=%s&nif=%s&numserie=%s&fecha=%s&importe=%s';
+
+
     public function __construct(private ?string $certificate = null, private ?string $ssl_key = null)
     {
         $this->init();
@@ -47,9 +52,10 @@ class AeatClient
      *
      * @return self
      */
-    public function setTestMode(?string $base_url = null): self
+    public function setTestMode(): self
     {
-        $this->base_url = $base_url ?? $this->sandbox_url;
+        $this->base_url = $this->sandbox_url;
+        $this->base_qr_url = $this->sandbox_qr_url;
 
         return $this;
     }

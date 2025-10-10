@@ -200,15 +200,14 @@ class Verifactu extends AbstractService
     public function calculateQrCode(VerifactuLog $log)
     {
 
-
         $csv = $log->status;
         $nif = $log->nif;
         $invoiceNumber = $log->invoice_number;
-        $date = $log->date->format('Y-m-d');
+        $date = $log->date->format('d-m-Y');
         $total = round($log->invoice->amount, 2);
         
         $url = sprintf(
-            'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?csv=%s&nif=%s&num=%s&fecha=%s&importe=%s',
+            $this->aeat_client->base_qr_url,
             urlencode($csv),
             urlencode($nif),
             urlencode($invoiceNumber),
@@ -228,25 +227,7 @@ class Verifactu extends AbstractService
             ->labelFont(new OpenSans(14))
             ->build();
 
-        // header('Content-Type: ' . $result->getMimeType());
         return $result->getString();
-
-        // try {
-        //     $renderer = new ImageRenderer(
-        //         new RendererStyle(200),
-        //         new SvgImageBackEnd()
-        //     );
-        //     $writer = new Writer($renderer);
-
-        //     $qr = $writer->writeString($this->encodeMessage(), 'utf-8');
-
-        //     return htmlspecialchars("<svg viewBox='0 0 200 200' width='200' height='200' x='0' y='0' xmlns='http://www.w3.org/2000/svg'>
-        //   <rect x='0' y='0' width='100%'' height='100%' />{$qr}</svg>");
-
-        // } catch (\Throwable $e) {
-        //     nlog("EPC QR failure => ".$e->getMessage());
-        //     return '';
-        // }
 
     }
 
