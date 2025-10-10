@@ -187,6 +187,28 @@ class Verifactu extends AbstractService
         return strtoupper(hash('sha256', $hashInput));
     }
     
+
+    public function calculateQrCode(VerifactuLog $log)
+    {
+
+
+        $csv = $log->status;
+        $nif = $log->nif;
+        $invoiceNumber = $log->invoice_number;
+        $date = $log->date->format('Y-m-d');
+        $total = round($log->invoice->amount, 2);
+        
+        $url = sprintf(
+            'https://www.agenciatributaria.gob.es/verifactu?csv=%s&nif=%s&num=%s&fecha=%s&importe=%s',
+            urlencode($csv),
+            urlencode($nif),
+            urlencode($invoiceNumber),
+            urlencode($date),
+            urlencode($total)
+        );
+
+    }
+
     public function send(string $soapXml): array
     {
         nlog(["sending", $soapXml]);

@@ -30,13 +30,21 @@ class InvoiceBackupCast implements CastsAttributes
 
     public function set($model, string $key, $value, array $attributes)
     {
+        nlog($value);
         if (is_null($value)) {
             return [$key => null];
         }
 
         // Ensure we're dealing with our object type
         if (! $value instanceof InvoiceBackup) {
-            throw new \InvalidArgumentException('Value must be an InvoiceBackup instance.');
+            // Attempt to create the instance from legacy data before throwing
+            try {
+                if (is_object($value)) {
+                    $value = InvoiceBackup::fromArray((array) $value);
+                }
+            } catch (\Exception $e) {
+                throw new \InvalidArgumentException('Value must be an InvoiceBackup instance. Legacy data conversion failed: ' . $e->getMessage());
+            }
         }
 
         return [

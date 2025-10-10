@@ -158,7 +158,6 @@ class Invoice extends BaseModel
     use ActionsInvoice;
     use Searchable;
 
-
     protected $presenter = EntityPresenter::class;
 
     protected $touches = [];
