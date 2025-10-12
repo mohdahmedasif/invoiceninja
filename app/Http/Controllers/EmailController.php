@@ -73,7 +73,7 @@ class EmailController extends BaseController
         $company = $entity_obj->company;
 
         /** Force AEAT Submission */
-        if($company->verifactuEnabled() && $entity_obj instanceof Invoice && $entity_obj->backup->guid == "") {
+        if($company->verifactuEnabled() && ($entity_obj instanceof Invoice) && $entity_obj->backup->guid == "") {
             $entity_obj->service()->sendVerifactu();
             return $this->itemResponse($entity_obj->fresh());
         }

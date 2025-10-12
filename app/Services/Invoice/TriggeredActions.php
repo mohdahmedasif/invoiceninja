@@ -57,7 +57,15 @@ class TriggeredActions extends AbstractService
 
         if ($this->request->has('send_email') && $this->request->input('send_email') == 'true') {
             $this->invoice->service()->markSent()->save();
-            $this->sendEmail();
+
+            /** Check for VERIFACTU Sent Status */
+            if($this->invoice->company->verifactuEnabled() && !$this->invoice->hasSentAeat()) {
+                $this->invoice->service()->sendVerifactu();
+            }
+            else {
+                $this->sendEmail();
+            }
+
             $this->updated = false;
         }
 

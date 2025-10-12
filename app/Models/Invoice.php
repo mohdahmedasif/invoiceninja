@@ -914,4 +914,9 @@ class Invoice extends BaseModel
 
         return ctrans('texts.payment_schedule_interval', ['index' => $index+1, 'total' => count($schedule_array), 'amount' => $amount]);
     }
+
+    public function hasSentAeat(): bool
+    {
+        return $this->backup->guid != "";
+    }
 }

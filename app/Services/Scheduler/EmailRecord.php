@@ -12,10 +12,10 @@
 
 namespace App\Services\Scheduler;
 
+use App\Models\Invoice;
 use App\Models\Scheduler;
-use App\Utils\Traits\MakesHash;
 use Illuminate\Support\Str;
-
+use App\Utils\Traits\MakesHash;
 class EmailRecord
 {
     use MakesHash;
@@ -30,7 +30,10 @@ class EmailRecord
 
         $entity = $class::find($this->decodePrimaryKey($this->scheduler->parameters['entity_id']));
 
-        if ($entity) {
+        if($entity instanceof Invoice && $entity->company->verifactuEnabled() && !$entity->hasSentAeat()) {
+            $entity->service()->sendVerifactu();
+        }
+        else if ($entity) {
             $entity->service()->markSent()->sendEmail();
         }
 
