@@ -60,6 +60,7 @@ class TriggeredActions extends AbstractService
 
             /** Check for VERIFACTU Sent Status */
             if($this->invoice->company->verifactuEnabled() && !$this->invoice->hasSentAeat()) {
+                $this->invoice->invitations()->update(['email_error' => 'primed']); // Flag the invitations as primed for AEAT submission
                 $this->invoice->service()->sendVerifactu();
             }
             else {

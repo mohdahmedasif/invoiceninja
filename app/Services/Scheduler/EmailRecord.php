@@ -31,6 +31,7 @@ class EmailRecord
         $entity = $class::find($this->decodePrimaryKey($this->scheduler->parameters['entity_id']));
 
         if($entity instanceof Invoice && $entity->company->verifactuEnabled() && !$entity->hasSentAeat()) {
+            $entity->invitations()->update(['email_error' => 'primed']); // Flag the invitations as primed for AEAT submission
             $entity->service()->sendVerifactu();
         }
         else if ($entity) {

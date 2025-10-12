@@ -97,6 +97,15 @@ class SendToAeat implements ShouldQueue
     
     public function createInvoice(Invoice $invoice)
     {
+        sleep(rand(1,2));
+
+        $invoice = $invoice->fresh();
+
+        /** Return Early if we have already sent the invoice to the end client */
+        if(strlen($invoice->backup->guid) >= 1) {
+            return;
+        }
+
         $verifactu = new Verifactu($invoice);
         $verifactu->run();
 
@@ -115,6 +124,8 @@ class SendToAeat implements ShouldQueue
             $invoice->backup->guid = $response['guid'];
             $invoice->saveQuietly();
         }
+
+        /** Check if we have emailed the invoice to the end client - if not - do it now! */
 
         $this->writeActivity($invoice, $response['success'] ? Activity::VERIFACTU_INVOICE_SENT : Activity::VERIFACTU_INVOICE_SENT_FAILURE, $message);
         $this->systemLog($invoice, $response, $response['success'] ? SystemLog::EVENT_VERIFACTU_SUCCESS : SystemLog::EVENT_VERIFACTU_FAILURE, SystemLog::TYPE_VERIFACTU_INVOICE);
