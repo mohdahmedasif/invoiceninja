@@ -12,22 +12,23 @@
 
 namespace App\Utils;
 
-use App\Helpers\Epc\EpcQrGenerator;
-use App\Helpers\SwissQr\SwissQrGenerator;
+use Exception;
 use App\Models\Account;
 use App\Models\Country;
-use App\Models\CreditInvitation;
 use App\Models\GatewayType;
-use App\Models\InvoiceInvitation;
-use App\Models\QuoteInvitation;
-use App\Models\RecurringInvoiceInvitation;
 use App\Utils\Traits\AppSetup;
-use App\Utils\Traits\DesignCalculator;
-use App\Utils\Traits\MakesDates;
+use App\Models\QuoteInvitation;
 use App\Utils\Traits\MakesHash;
-use Exception;
+use App\Models\CreditInvitation;
+use App\Utils\Traits\MakesDates;
+use App\Models\InvoiceInvitation;
+use App\Helpers\Epc\EpcQrGenerator;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
+use App\Utils\Traits\DesignCalculator;
+use App\Helpers\SwissQr\SwissQrGenerator;
+use App\Models\RecurringInvoiceInvitation;
+use App\Services\EDocument\Standards\Verifactu;
 
 class HtmlEngine
 {
@@ -812,11 +813,30 @@ class HtmlEngine
             $data['$sepa_qr_code_raw'] = ['value' => html_entity_decode($data['$sepa_qr_code']['value']), 'label' => ''];
         }
 
+
+        $data['$verifactu_qr_code'] = ['value' => $this->getVerifactuQrCode(), 'label' => ''];
+
         $arrKeysLength = array_map('strlen', array_keys($data));
         array_multisort($arrKeysLength, SORT_DESC, $data);
 
         return $data;
     }
+
+    private function getVerifactuQrCode()
+    {
+        $verifactu_log = ($this->entity instanceof \App\Models\Invoice) ? $this->entity->verifactu_logs()->orderBy('id','desc')->first() : null;
+
+        if(!$verifactu_log) {
+            return '';
+        }
+
+        $qr_code = (new Verifactu($this->entity))->calculateQrCode($verifactu_log);
+
+        $qr_code = base64_encode($qr_code);
+
+        return "<tr><td><img src=\"data:image/png;base64,{$qr_code}\" alt=\"Verifactu QR Code\"></td></tr>";
+    }
+
 
     private function getPaymentMeta(\App\Models\Payment $payment)
     {
