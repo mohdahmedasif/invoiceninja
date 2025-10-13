@@ -83,7 +83,7 @@ class HandleCancellation extends AbstractService
         $this->invoice->service()->workFlow()->save();
 
         // R2 Cancellation - do not create a separate document
-        if($this->invoice->backup->document_type === 'R2'){
+        if($this->invoice->backup->document_type === 'R2'){ // You cannot cancel a cancellation!!!!!
 
             $parent = Invoice::withTrashed()->find($this->decodePrimaryKey($this->invoice->backup->parent_invoice_id));
 
@@ -99,6 +99,7 @@ class HandleCancellation extends AbstractService
         }
         else {
             $replicated_invoice = $this->invoice->replicate();
+            unset($replicated_invoice->backup);
             $replicated_invoice->status_id = Invoice::STATUS_DRAFT;
             $replicated_invoice->date = now()->format('Y-m-d');
             $replicated_invoice->due_date = null;

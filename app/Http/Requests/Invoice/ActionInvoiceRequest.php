@@ -47,13 +47,6 @@ class ActionInvoiceRequest extends Request
 
         $validator->after(function ($validator) {
 
-            if($this->invoice->company->verifactuEnabled()){
-
-                if($this->action == 'delete' && $this->invoice->status_id != \App\Models\Invoice::STATUS_DRAFT){
-                    $validator->errors()->add('action', ctrans('texts.locked_invoice'));
-                }
-            }
-
             if ($this->action == 'delete' && ! $this->invoiceDeletable($this->invoice)) {
                 $validator->errors()->add('action', 'This invoice cannot be deleted');
             }elseif ($this->action == 'cancel' && ! $this->invoiceCancellable($this->invoice)) {
@@ -61,6 +54,7 @@ class ActionInvoiceRequest extends Request
             }elseif ($this->action == 'reverse' && ! $this->invoiceReversable($this->invoice)) {
                 $validator->errors()->add('action', 'This invoice cannot be reversed');
             }
+
         });
         
     }

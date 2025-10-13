@@ -47,16 +47,11 @@ class RegistroAlta
 
     private ?VerifactuLog $v_log;
 
-    private array $tax_map = [];
-
-    private float $allowance_total = 0;
-
     private array $errors = [];
 
     private string $current_timestamp;
 
-    private float $irpf_total = 0;
-
+    private array $calculated_invoice_values = [];
     private array $impuesto_codes = [
         '01' => 'IVA (Impuesto sobre el Valor Añadido)', // Value Added Tax - Standard Spanish VAT
         '02' => 'IPSI (Impuesto sobre la Producción, los Servicios y la Importación)', // Production, Services and Import Tax - Ceuta and Melilla
@@ -99,10 +94,36 @@ class RegistroAlta
     public function __construct(public Invoice $invoice)
     {
         $this->company = $invoice->company;
-        $this->calc = $this->invoice->calc();
+        // $this->calc = $this->invoice->calc();
         $this->v_invoice = new VerifactuInvoice();
     }
 
+    private function setInvoiceValues(): self
+    {
+        $line_items = $this->invoice->line_items;
+
+        foreach($line_items as $key => $value){
+
+            if(stripos($value->tax_name1, 'irpf') !== false){
+                $line_items[$key]->tax_name1 = '';
+                $line_items[$key]->tax_rate1 = 0;
+            } 
+            elseif(stripos($value->tax_name2, 'irpf') !== false){
+                $line_items[$key]->tax_name2 = '';
+                $line_items[$key]->tax_rate2 = 0;
+            }
+            elseif(stripos($value->tax_name3, 'irpf') !== false){
+                $line_items[$key]->tax_name3 = '';
+                $line_items[$key]->tax_rate3 = 0;
+            }
+        }
+
+        $this->invoice->line_items = $line_items;
+
+        $this->calc = $this->invoice->calc();
+
+        return $this;
+    }
     /**
      * Entry point for building document
      *
@@ -110,23 +131,37 @@ class RegistroAlta
      */
     public function run(): self
     {
-
+        
         // Get the previous invoice log
         $this->v_log = $this->company->verifactu_logs()->first();
 
-        $this->current_timestamp = now()->format('Y-m-d\TH:i:sP');
+        $this->current_timestamp = now()->setTimezone('Europe/Madrid')->format('Y-m-d\TH:i:sP');
+
+        $date = \Carbon\Carbon::parse($this->invoice->date);
+
+        // Ensure it’s not later than "now" in Spain
+        $now = \Carbon\Carbon::now('Europe/Madrid');
+
+        if ($date->greaterThan($now)) {        
+            $date = $now;
+            $this->invoice->updateQuietly(['date' => $date->format('Y-m-d')]);
+        }
+        
+        $this->setInvoiceValues();
+
+        $formattedDate = $date->format('d-m-Y');
 
         $this->v_invoice
             ->setIdVersion('1.0')
             ->setIdFactura((new IDFactura())
                 ->setIdEmisorFactura($this->company->settings->vat_number)
                 ->setNumSerieFactura($this->invoice->number)
-                ->setFechaExpedicionFactura(\Carbon\Carbon::parse($this->invoice->date)->format('d-m-Y')))
+                ->setFechaExpedicionFactura($formattedDate))
             ->setNombreRazonEmisor($this->company->present()->name()) //company name
             ->setTipoFactura('F1') //invoice type
             ->setDescripcionOperacion('Alta')// It IS! manadatory - max chars 500
-            ->setCuotaTotal($this->invoice->total_taxes) //total taxes
-            ->setImporteTotal($this->invoice->amount - $this->calculateWithholding()) //total invoice amount
+            ->setCuotaTotal($this->calc->getTotalTaxes()) //total taxes
+            ->setImporteTotal($this->calc->getTotal()) //total invoice amount
             ->setFechaHoraHusoGenRegistro($this->current_timestamp) //creation/submission timestamp
             ->setTipoHuella('01') //sha256
             ->setHuella('PLACEHOLDER_HUELLA');
@@ -282,24 +317,6 @@ class RegistroAlta
         $this->v_invoice->setSistemaInformatico($sistema);
 
         return $this;
-    }
-
-    private function calculateWithholding(): float
-    {
-        if($this->invoice->custom_surcharge1 < 0 && stripos($this->invoice->company->custom_fields->surcharge1, 'IRPF') !== false) {
-            return $this->invoice->custom_surcharge1;
-        }
-        elseif($this->invoice->custom_surcharge2 < 0 && stripos($this->invoice->company->custom_fields->surcharge2, 'IRPF') !== false) {
-            return $this->invoice->custom_surcharge2;
-        }
-        elseif($this->invoice->custom_surcharge3 < 0 && stripos($this->invoice->company->custom_fields->surcharge3, 'IRPF') !== false) {
-            return $this->invoice->custom_surcharge3;
-        }
-        elseif($this->invoice->custom_surcharge4 < 0 && stripos($this->invoice->company->custom_fields->surcharge4, 'IRPF') !== false) {
-            return $this->invoice->custom_surcharge4;
-        }
-
-        return 0;
     }
 
     public function setRectification(): self

@@ -60,7 +60,8 @@ class BulkInvoiceRequest extends Request
                         if($action == 'delete' && $invoice->status_id != \App\Models\Invoice::STATUS_DRAFT){
                             $validator->errors()->add('action', ctrans('texts.locked_invoice'));
                         }
-                        if($action == 'restore'){
+
+                        if($action == 'restore' && $invoice->is_deleted){
                             $validator->errors()->add('action', ctrans('texts.restore_disabled_verifactu'));
                         }
                     }
