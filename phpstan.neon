@@ -23,6 +23,7 @@ parameters:
             - 'Modules/Accounting/*'
             - 'tests/*'
             - 'Modules/Accounting/*'
+            - '~/.*'
     universalObjectCratesClasses:
         - App\DataMapper\Tax\RuleInterface
         - App\DataMapper\FeesAndLimits
