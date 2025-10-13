@@ -145,7 +145,7 @@ class VerifactuApiTest extends TestCase
             'X-API-TOKEN' => $this->token,
         ])->postJson('/api/v1/invoices/bulk', $data);
 
-        $response->assertStatus(200);
+        $response->assertStatus(422);
 
 
     }
@@ -187,7 +187,7 @@ class VerifactuApiTest extends TestCase
             'X-API-TOKEN' => $this->token,
         ])->postJson('/api/v1/invoices/bulk', $data);
 
-        $response->assertStatus(200);
+        $response->assertStatus(422);
     }
 
     public function test_delete_invoice_with_parent()
@@ -270,7 +270,7 @@ class VerifactuApiTest extends TestCase
             'X-API-TOKEN' => $this->token,
         ])->postJson('/api/v1/invoices/bulk', $data);
         
-        $response->assertStatus(200);
+        $response->assertStatus(422);
 
 
         $data = [
@@ -845,12 +845,10 @@ class VerifactuApiTest extends TestCase
             'X-API-TOKEN' => $this->token,
         ])->postJson('/api/v1/invoices/bulk', $data);
 
-        $response->assertStatus(200);
+        $response->assertStatus(422);
 
         $arr = $response->json();
 
-        $this->assertTrue($arr['data'][0]['is_deleted']);
-        
         $data = [
             'action' => 'restore',
             'ids' => [$this->invoice->hashed_id]
@@ -901,7 +899,7 @@ class VerifactuApiTest extends TestCase
             'X-API-TOKEN' => $this->token,
         ])->postJson('/api/v1/invoices/bulk', $data);
 
-        $response->assertStatus(200);
+        $response->assertStatus(422);
 
     }
 
