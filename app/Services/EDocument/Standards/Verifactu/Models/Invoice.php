@@ -647,11 +647,11 @@ class Invoice extends BaseXmlModel implements XmlModelInterface
             $xmlContent = $doc->saveXML();
             Log::debug("XML before signing:", ['xml' => $xmlContent]);
 
-            $objDSig = new XMLSecurityDSig();
-            $objDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
+            $objDSig = new XMLSecurityDSig(); //@phpstan-ignore-line
+            $objDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N); //@phpstan-ignore-line
             
             // Create a new security key
-            $objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, array('type' => 'private'));
+            $objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, array('type' => 'private')); //@phpstan-ignore-line
             
             // Load the private key
             $objKey->loadKey($this->privateKeyPath, true);
@@ -659,7 +659,7 @@ class Invoice extends BaseXmlModel implements XmlModelInterface
             // Add the reference
             $objDSig->addReference(
                 $doc, 
-                XMLSecurityDSig::SHA256,
+                XMLSecurityDSig::SHA256, //@phpstan-ignore-line
                 [
                     'http://www.w3.org/2000/09/xmldsig#enveloped-signature',
                     'http://www.w3.org/2001/10/xml-exc-c14n#'
@@ -677,7 +677,7 @@ class Invoice extends BaseXmlModel implements XmlModelInterface
             $objDSig->appendSignature($doc->documentElement);
             
             // Verify the signature
-            $objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, array('type' => 'public'));
+            $objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, array('type' => 'public')); //@phpstan-ignore-line
             $objKey->loadKey($this->publicKeyPath, true, true);
             
             if ($objDSig->verify($objKey) === 1) {
@@ -709,7 +709,7 @@ class Invoice extends BaseXmlModel implements XmlModelInterface
             Log::debug('XML to verify: ' . $doc->saveXML());
 
             // Get the signature node
-            $objXMLSecDSig = new XMLSecurityDSig();
+            $objXMLSecDSig = new XMLSecurityDSig(); //@phpstan-ignore-line
             
             // Locate the signature
             Log::debug('Locating signature');
@@ -949,6 +949,8 @@ if ($this->destinatarios !== null && count($this->destinatarios) > 0) {
             // Restore previous error handling setting
             libxml_use_internal_errors($previousErrorSetting);
             libxml_clear_errors();
+
+            
         }
     }
 

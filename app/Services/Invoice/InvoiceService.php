@@ -745,6 +745,16 @@ class InvoiceService
 
             $this->invoice->client->service()->updateBalance(round($this->invoice->amount, 2));
             $this->sendVerifactu();
+
+            $child_invoice_amounts = Invoice::withTrashed()
+                                        ->whereIn('id', $this->transformKeys($modified_invoice->backup->child_invoice_ids))
+                                        ->get()
+                                        ->sum('backup.adjustable_amount');
+
+            if(\App\Utils\BcMath::equal(($modified_invoice->amount + $child_invoice_amounts), 0)) {
+                $modified_invoice->status_id = Invoice::STATUS_CANCELLED;
+                $modified_invoice->saveQuietly();
+            }
         }
 
         return $this;
