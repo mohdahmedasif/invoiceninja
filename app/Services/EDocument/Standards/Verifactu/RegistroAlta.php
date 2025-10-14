@@ -98,9 +98,9 @@ class RegistroAlta
         $this->v_invoice = new VerifactuInvoice();
     }
 
-    private function setInvoiceValues(): self
+    private function setInvoiceValues(Invoice $invoice): self
     {
-        $line_items = $this->invoice->line_items;
+        $line_items = $invoice->line_items;
 
         foreach($line_items as $key => $value){
 
@@ -118,9 +118,9 @@ class RegistroAlta
             }
         }
 
-        $this->invoice->line_items = $line_items;
+        $invoice->line_items = $line_items;
 
-        $this->calc = $this->invoice->calc();
+        $this->calc = $invoice->calc();
 
         return $this;
     }
@@ -135,6 +135,8 @@ class RegistroAlta
         // Get the previous invoice log
         $this->v_log = $this->company->verifactu_logs()->first();
 
+        $this->setInvoiceValues(clone $this->invoice);
+
         $this->current_timestamp = now()->setTimezone('Europe/Madrid')->format('Y-m-d\TH:i:sP');
 
         $date = \Carbon\Carbon::parse($this->invoice->date);
@@ -144,10 +146,9 @@ class RegistroAlta
 
         if ($date->greaterThan($now)) {        
             $date = $now;
-            $this->invoice->updateQuietly(['date' => $date->format('Y-m-d')]);
+            $this->invoice->date = $date->format('Y-m-d');
         }
         
-        $this->setInvoiceValues();
 
         $formattedDate = $date->format('d-m-Y');
 
