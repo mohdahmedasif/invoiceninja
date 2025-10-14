@@ -724,6 +724,10 @@ class InvoiceService
             /** Was it a partial or FULL rectification? */
             $modified_invoice = Invoice::withTrashed()->find($this->decodePrimaryKey($invoice_array['modified_invoice_id']));
 
+            if(!$modified_invoice) {
+                throw new \Exception('Modified invoice not found');
+            }
+
             nlog("invoice amount: " . $this->invoice->amount);
             nlog("modified invoice amount: " . $modified_invoice->amount);
             if(\App\Utils\BcMath::lessThan(abs($this->invoice->amount), $modified_invoice->amount)) {
@@ -747,7 +751,7 @@ class InvoiceService
             $this->sendVerifactu();
 
             $child_invoice_amounts = Invoice::withTrashed()
-                                        ->whereIn('id', $this->transformKeys($modified_invoice->backup->child_invoice_ids))
+                                        ->whereIn('id', $this->transformKeys($modified_invoice->backup->child_invoice_ids->toArray()))
                                         ->get()
                                         ->sum('backup.adjustable_amount');
 
