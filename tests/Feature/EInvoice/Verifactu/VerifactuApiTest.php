@@ -60,7 +60,7 @@ class VerifactuApiTest extends TestCase
         $item->tax_name1 = 'IVA';
 
         /** @var \App\Models\Invoice $invoice */
-        $invoice = Invoice::factory()->create([
+        $invoice = Invoice::factory()->make([
             'company_id' => $this->company->id,
             'client_id' => $this->client->id,
             'user_id' => $this->user->id,
@@ -84,8 +84,8 @@ class VerifactuApiTest extends TestCase
             'footer' => '',
         ]);
 
-        $invoice->backup->document_type = 'F1';
-        $invoice->backup->adjustable_amount = 121;
+        // $invoice->backup->document_type = 'F1';
+        // $invoice->backup->adjustable_amount = 121;
         
         $repo = new InvoiceRepository();
         $invoice = $repo->save([], $invoice);
@@ -106,6 +106,8 @@ class VerifactuApiTest extends TestCase
 
         $invoice = $this->buildData();
 
+        $this->assertTrue($invoice->company->verifactuEnabled());
+        
         $item = new InvoiceItem();
         $item->quantity = 1;
         $item->product_key = 'product_1';
@@ -1075,14 +1077,25 @@ class VerifactuApiTest extends TestCase
     public function test_cancel_invoice_response()
     {
 
-       $invoice = $this->buildData();
+        $settings = $this->company->settings;
+        $settings->e_invoice_type = 'VERIFACTU';
+        $settings->is_locked = 'when_sent';
+
+        $this->company->settings = $settings;
+        $this->company->save();
+
+        $invoice = $this->buildData();
+
+        $repo = new InvoiceRepository();
+        $invoice = $repo->save($invoice->toArray(), $invoice);
 
         $invoice->service()->markSent()->save();
 
         $this->assertEquals($invoice->status_id, Invoice::STATUS_SENT);
         $this->assertEquals($invoice->balance, 121);
         $this->assertEquals($invoice->amount, 121);
-        
+        $this->assertEquals('F1', $invoice->backup->document_type);
+
         $settings = $this->company->settings;
         $settings->e_invoice_type = 'VERIFACTU';
 

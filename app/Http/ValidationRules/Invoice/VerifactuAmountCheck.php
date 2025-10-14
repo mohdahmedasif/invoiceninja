@@ -121,6 +121,13 @@ class VerifactuAmountCheck implements ValidationRule
             /** The client facing amount that can be cancelled This is the amount that will NOT contain IRPF amounts */
             $client_facing_adjustable_amount = ($child_invoices_sum / $invoice->backup->adjustable_amount) * $total;
 
+            nlog("total: " . $total);
+            nlog("adjustable_amount: " . $adjustable_amount);
+            nlog("child_invoices_sum: " . $child_invoices_sum);
+            nlog("invoice->backup->adjustable_amount: " . $invoice->backup->adjustable_amount);
+            nlog("client_facing_adjustable_amount: " . $client_facing_adjustable_amount);
+            
+
             if(abs($total) > $adjustable_amount) {
                 $total = abs($total); // The rectification invoice amount cannot be greater than the original invoice amount
                 $fail("Total de ajuste {$client_facing_adjustable_amount} no puede exceder el saldo de la factura {$total}");
