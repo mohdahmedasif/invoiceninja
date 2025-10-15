@@ -824,9 +824,13 @@ class HtmlEngine
 
     private function getVerifactuQrCode()
     {
-        $verifactu_log = ($this->entity instanceof \App\Models\Invoice) ? $this->entity->verifactu_logs()->orderBy('id','desc')->first() : null;
+        if(!$this->company->verifactuEnabled() || !($this->entity instanceof \App\Models\Invoice) || strlen($this->entity->backup->guid ?? '') < 2) {
+            return '';
+        }
 
-        if((!$verifactu_log || !($this->entity instanceof \App\Models\Invoice)) && strlen($this->entity->backup->guid ?? '') < 2) {
+        $verifactu_log = $this->entity->verifactu_logs()->orderBy('id','desc')->first();
+
+        if(!$verifactu_log) {
             return '';
         }
 

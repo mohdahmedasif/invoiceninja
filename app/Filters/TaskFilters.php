@@ -164,6 +164,33 @@ class TaskFilters extends QueryFilters
 
     }
 
+    public function client_ids(string $client_ids = ''): Builder
+    {
+        if (strlen($client_ids) == 0) {
+            return $this->builder;
+        }
+
+        return $this->builder->whereIn('client_id', $this->transformKeys(explode(',', $client_ids)));
+    }
+
+    public function project_ids(string $project_ids = ''): Builder
+    {
+        if (strlen($project_ids) == 0) {
+            return $this->builder;
+        }
+
+        return $this->builder->whereIn('project_id', $this->transformKeys(explode(',', $project_ids)));
+    }
+
+    public function assigned_user_ids(string $assigned_user_ids = ''): Builder
+    {
+        if (strlen($assigned_user_ids) == 0) {
+            return $this->builder;
+        }
+
+        return $this->builder->whereIn('assigned_user_id', $this->transformKeys(explode(',', $assigned_user_ids)));
+    }
+
     public function assigned_user(string $user = ''): Builder
     {
         if (strlen($user) == 0) {
