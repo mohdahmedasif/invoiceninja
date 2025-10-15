@@ -221,6 +221,31 @@ class TaskFilters extends QueryFilters
         return $this->builder;
     }
 
+    /**
+     * Filter by date range
+     *
+     * @param string $date_range
+     * @return Builder
+     */
+    public function date_range(string $date_range = ''): Builder
+    {
+        $parts = explode(",", $date_range);
+
+        if (count($parts) != 2 || !in_array('calculated_start_date', \Illuminate\Support\Facades\Schema::getColumnListing($this->builder->getModel()->getTable()))) {
+            return $this->builder;
+        }
+
+        try {
+
+            $start_date = \Carbon\Carbon::parse($parts[0]);
+            $end_date = \Carbon\Carbon::parse($parts[1]);
+
+            return $this->builder->whereBetween('calculated_start_date', [$start_date, $end_date]);
+        } catch (\Exception $e) {
+            return $this->builder;
+        }
+
+    }
 
     /**
      * Filters the query by the users company ID.
