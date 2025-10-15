@@ -43,6 +43,7 @@ class StoreClientRequest extends Request
         /** @var  \App\Models\User $user */
         $user = auth()->user();
 
+        $rules['name'] = 'bail|sometimes|nullable|string';
         $rules['file'] = 'bail|sometimes|array';
         $rules['file.*'] = $this->fileValidation();
         $rules['documents'] = 'bail|sometimes|array';
@@ -199,7 +200,7 @@ class StoreClientRequest extends Request
         }
 
         // prevent xss injection
-        if (array_key_exists('name', $input)) {
+        if (array_key_exists('name', $input) && is_string($input['name'])) {
             $input['name'] = strip_tags($input['name']);
         }
 
