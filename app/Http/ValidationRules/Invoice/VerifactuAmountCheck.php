@@ -76,45 +76,17 @@ class VerifactuAmountCheck implements ValidationRule
                 $fail("Invoice already credited in full");
             }
 
-            // \DB::connection(config('database.default'))->beginTransaction();
+            $array_data = request()->all();
+            unset($array_data['client_id']);
 
+            $invoice->fill($array_data);
+                        
+            /** Total WITHOUT IRPF */
+            $total = $invoice->calc()->getTotal();
 
-                $array_data = request()->all();
-                unset($array_data['client_id']);
-
-                $invoice->fill($array_data);
-                
-                /** Calculate the gross total of the cancellation invoice. */
-                // $total = $invoice->calc()->getTotal();
-
-                // $items = $array_data['line_items'];
-
-                // /** Remove IRPF from the cancellation invoice. */
-                // foreach($items as &$item){
-                //     if(stripos($item['tax_name1'], 'irpf') !== false){
-                //         $item['tax_name1'] = '';
-                //         $item['tax_rate1'] = 0;
-                //     }
-                //     elseif(stripos($item['tax_name2'], 'irpf') !== false){
-                //         $item['tax_name2'] = '';
-                //         $item['tax_rate2'] = 0;
-                //     }
-                //     elseif(stripos($item['tax_name3'], 'irpf') !== false){
-                //         $item['tax_name3'] = '';
-                //         $item['tax_rate3'] = 0;
-                //     }
-                // }
-
-                // $invoice->line_items = $items;
-            
-                /** Total WITHOUT IRPF */
-                $total = $invoice->calc()->getTotal();
-
-                $invoice->refresh();
-
-            // \DB::connection(config('database.default'))->rollBack();
+            $invoice->refresh();
     
-            if($total > 0) {
+            if($total >= 0) {
                 $fail("Only negative invoices can rectify a invoice.");
             }
 
@@ -123,14 +95,6 @@ class VerifactuAmountCheck implements ValidationRule
 
             /** The client facing amount that can be cancelled This is the amount that will NOT contain IRPF amounts */
             $client_facing_adjustable_amount = ($invoice->amount / $invoice->backup->adjustable_amount) * $adjustable_amount;
-
-            nlog("total: " . $total);
-            nlog("invoice->amount: " . $invoice->amount);
-            nlog("adjustable_amount: " . $adjustable_amount);
-            nlog("child_invoices_sum: " . $child_invoices_sum);
-            nlog("invoice->backup->adjustable_amount: " . $invoice->backup->adjustable_amount);
-            nlog("client_facing_adjustable_amount: " . $client_facing_adjustable_amount);
-            
 
             if(abs($total) > $client_facing_adjustable_amount) {
                 $fail("Total de ajuste {$total} no puede exceder el saldo de la factura {$client_facing_adjustable_amount}");
