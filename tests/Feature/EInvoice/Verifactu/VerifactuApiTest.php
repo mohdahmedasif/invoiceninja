@@ -11,14 +11,16 @@
 
 namespace Tests\Feature\EInvoice\Verifactu;
 
-use App\DataMapper\InvoiceItem;
 use Tests\TestCase;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Project;
 use Tests\MockAccountData;
+use Illuminate\Support\Str;
+use App\Models\GroupSetting;
 use App\Models\Subscription;
 use App\Models\ClientContact;
+use App\DataMapper\InvoiceItem;
 use App\Utils\Traits\MakesHash;
 use App\Models\RecurringInvoice;
 use App\Factory\InvoiceItemFactory;
@@ -27,7 +29,6 @@ use Illuminate\Support\Facades\Config;
 use App\Repositories\InvoiceRepository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Str;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 class VerifactuApiTest extends TestCase
@@ -94,6 +95,69 @@ class VerifactuApiTest extends TestCase
 
     }
 
+
+
+    public function test_update_group_settings_with_locked_invoices()
+    {
+        $settings = $this->company->settings;
+        $settings->e_invoice_type = 'VERIFACTU';
+        $settings->lock_invoices = 'when_sent';
+
+        $this->company->settings = $settings;
+        $this->company->save();
+
+        $gs = new GroupSetting();
+        $gs->name = 'Test';
+        $gs->company_id = $this->company->id;
+
+        $settings = new \stdClass();
+        $settings->lock_invoices = 'when_sent';
+        $gs->settings = $settings;
+        $gs->save();
+
+        $settings = new \stdClass();
+        $settings->lock_invoices = 'off';
+
+        $data = [
+            'name' => 'testX',
+            'settings' => (array)$settings,
+        ];
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->token,
+        ])->putJson('/api/v1/group_settings/'.$gs->hashed_id, $data);
+
+         nlog($response->json());
+        $response->assertStatus(422);
+        
+    }
+
+    public function test_store_group_settings_with_locked_invoices()
+    {
+        $settings = $this->company->settings;
+        $settings->e_invoice_type = 'VERIFACTU';
+        $settings->lock_invoices = 'when_sent';
+
+        $this->company->settings = $settings;
+        $this->company->save();
+
+        $settings = new \stdClass();
+        $settings->lock_invoices = 'off';
+
+        $data = [
+            'name' => 'testX',
+            'settings' => $settings,
+        ];
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->token,
+        ])->postJson('/api/v1/group_settings', $data);
+
+        $response->assertStatus(422);
+        
+    }
 
     public function test_update_company_settings_with_locked_invoices()
     {
