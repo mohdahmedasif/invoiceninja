@@ -37,7 +37,7 @@ class HandleCancellation extends AbstractService
             return $this->invoice;
         }
 
-        if($this->invoice->company->verifactuEnabled()) {
+        if($this->invoice->verifactuEnabled()) {
             return $this->verifactuCancellation();
         }
 
@@ -84,18 +84,6 @@ class HandleCancellation extends AbstractService
 
         // R2 Cancellation - do not create a separate document
         if(in_array($this->invoice->backup->document_type, ['R1','R2'])){ // You cannot cancel a cancellation!!!!!
-
-            // empty catch
-            // $parent = Invoice::withTrashed()->find($this->decodePrimaryKey($this->invoice->backup->parent_invoice_id));
-
-            // if(!$parent) {
-            //     return $this->invoice;
-            // }
-
-            // $parent->backup->child_invoice_ids->reject(fn($id) => $id === $this->invoice->hashed_id);
-            // $parent->save();
-
-            // $this->invoice->service()->cancelVerifactu();
         }
         else {
             $replicated_invoice = $this->invoice->replicate();

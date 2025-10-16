@@ -824,7 +824,7 @@ class HtmlEngine
 
     private function getVerifactuQrCode()
     {
-        if(!$this->company->verifactuEnabled() || !($this->entity instanceof \App\Models\Invoice) || strlen($this->entity->backup->guid ?? '') < 2 || $this->entity->backup->guid == 'exempt') {
+        if(!($this->entity instanceof \App\Models\Invoice) || !$this->entity->verifactuEnabled() || strlen($this->entity->backup->guid ?? '') < 2 || $this->entity->backup->guid == 'exempt') {
             return '';
         }
 
@@ -838,7 +838,33 @@ class HtmlEngine
 
         $qr_code = base64_encode($qr_code);
 
-        return "<tr><td><img src=\"data:image/png;base64,{$qr_code}\" alt=\"Verifactu QR Code\"></td></tr>";
+        $f1_text = "Factura F1<br/>
+Factura verificable en la Sede Electrónica de la AEAT - VERI*FACTU<br/>
+Emitida conforme al RD 1007/2023 (Veri*Factu)<br/>
+Código seguro de verificación (CSV): {$verifactu_log->status}";
+
+        $r2_text = "Factura Rectificativa R2<br/>
+Factura verificable en la Sede Electrónica de la AEAT - VERI*FACTU<br/>
+Motivo de la rectificación: Anulación total de la factura original<br/>
+Factura rectificativa de la factura nº {$this->entity->backup->parent_invoice_number}, de fecha {$this->entity->date}<br/>
+Tipo de rectificación: I (Por diferencias)<br/>
+Código seguro de verificación (CSV): {$verifactu_log->status}";
+
+        $r1_text = "Factura Rectificativa R1<br/>
+Factura verificable en la Sede Electrónica de la AEAT - VERI*FACTU<br/>
+Factura rectificativa de la factura nº {$this->entity->backup->parent_invoice_number}, de fecha {$this->entity->date}<br/>
+Motivo de la rectificación: Corrección de base imponible<br/>
+Tipo de rectificación: I (Por diferencias)\n
+Código seguro de verificación (CSV): {$verifactu_log->status}";
+
+$text = match($this->entity->backup->document_type) {
+    'F1' => $f1_text,
+    'R2' => $r2_text,
+    'R1' => $r1_text,
+    default => '',
+};
+
+        return "<tr><td>{$text}</td></tr><tr><td><img src=\"data:image/png;base64,{$qr_code}\" alt=\"Verifactu QR Code\"></td></tr>";
     }
 
 
