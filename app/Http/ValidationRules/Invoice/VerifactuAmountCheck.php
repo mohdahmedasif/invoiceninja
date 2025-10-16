@@ -100,6 +100,8 @@ class VerifactuAmountCheck implements ValidationRule
                 $fail("Total de ajuste {$total} no puede exceder el saldo de la factura {$client_facing_adjustable_amount}");
             }
         }
-
+        elseif($company->verifactuEnabled() && isset($this->input['amount']) && $this->input['amount'] < 0){
+            $fail("El importe de la factura no puede ser negativo.");
+        }
     }
 }
