@@ -181,19 +181,16 @@ class EntityLevel implements EntityLevelInterface
 
         foreach ($this->client_fields as $field) {
 
-            if ($this->validString($client->{$field})) {
+            if ($field == 'country_id' && $client->country_id >= 1 && in_array($client->country->iso_3166_2, (new \App\DataMapper\Tax\BaseRule())->eu_country_codes)) {
                 continue;
             }
-
-            if ($field == 'country_id' && $client->country_id >= 1) {
-                continue;
+            elseif($field == 'country_id'){
+                $errors[] = ['field' => 'country_id', 'label' => ctrans("texts.country_id") . " (Must be in the EU)"];
             }
-
-            // if($field == 'vat_number' && $client->classification == 'individual') {
-            //     continue;
-            // }
-
-            $errors[] = ['field' => $field, 'label' => ctrans("texts.{$field}")];
+            else
+            {
+                $errors[] = ['field' => $field, 'label' => ctrans("texts.{$field}")];
+            }
 
         }
 
@@ -202,19 +199,19 @@ class EntityLevel implements EntityLevelInterface
 
             if (in_array($client->classification, ['','individual']) && strlen($client->id_number ?? '') == 0 && strlen($client->vat_number ?? '') == 0) {
                 $errors[] = ['field' => 'id_number', 'label' => ctrans("texts.id_number")];
-            } elseif (!in_array($client->classification, ['','individual']) && strlen($client->vat_number ?? '')) {
+            } 
+            elseif (strlen($client->vat_number ?? '') == 0) {
                 $errors[] = ['field' => 'vat_number', 'label' => ctrans("texts.vat_number")];
             }
+            // elseif (!in_array($client->classification, ['','individual']) && strlen($client->vat_number ?? '')) {
+            //     $errors[] = ['field' => 'vat_number', 'label' => ctrans("texts.vat_number")];
+            // }
 
         }
-
-        // else{
-        //     //If not an individual, you MUST have a VAT number if you are in the EU
-        //     if (!in_array($client->classification,['','individual']) && !$this->validString($client->vat_number)) {
-        //         $errors[] = ['field' => 'vat_number', 'label' => ctrans("texts.vat_number")];
-        //     }
-
-        // }
+        elseif(empty($client->vat_number)) {
+            $errors[] = ['field' => 'vat_number', 'label' => ctrans("texts.vat_number")];
+        }
+      
 
         return $errors;
 

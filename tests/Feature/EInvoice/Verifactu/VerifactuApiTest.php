@@ -51,6 +51,12 @@ class VerifactuApiTest extends TestCase
     private function buildData()
     {
 
+        $this->client->country_id = 724;
+        $this->client->vat_number = 'B12345679';
+        $this->client->id_number = 'B12345679';
+        $this->client->classification = 'business';
+        $this->client->save();
+
         $item = new InvoiceItem();
         $item->quantity = 1;
         $item->product_key = 'product_1';
@@ -219,7 +225,7 @@ class VerifactuApiTest extends TestCase
 
         $invoice = $this->buildData();
 
-        $this->assertTrue($invoice->company->verifactuEnabled());
+        $this->assertTrue($invoice->verifactuEnabled());
         
         $item = new InvoiceItem();
         $item->quantity = 1;
@@ -1254,9 +1260,12 @@ class VerifactuApiTest extends TestCase
         $this->company->settings = $settings;
         $this->company->save();
 
+        $invoice = $this->buildData();
+        $invoice->service()->markSent()->save();
+
         $data = [
             'action' => 'delete',
-            'ids' => [$this->invoice->hashed_id]
+            'ids' => [$invoice->hashed_id]
         ];
         
         $response = $this->withHeaders([
@@ -1292,9 +1301,12 @@ class VerifactuApiTest extends TestCase
         $this->company->settings = $settings;
         $this->company->save();
 
+        $invoice = $this->buildData();
+        $invoice->service()->markSent()->save();
+        
         $data = [
             'action' => 'archive',
-            'ids' => [$this->invoice->hashed_id]
+            'ids' => [$invoice->hashed_id]
         ];
         
         $response = $this->withHeaders([
@@ -1310,7 +1322,7 @@ class VerifactuApiTest extends TestCase
         
         $data = [
             'action' => 'restore',
-            'ids' => [$this->invoice->hashed_id]
+            'ids' => [$invoice->hashed_id]
         ];
 
         $response = $this->withHeaders([
