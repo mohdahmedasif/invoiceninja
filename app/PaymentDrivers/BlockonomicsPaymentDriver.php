@@ -136,23 +136,8 @@ class BlockonomicsPaymentDriver extends BaseDriver
         $payment->status_id = Payment::STATUS_COMPLETED;
         $payment->save();
 
-        // Find the associated invoice using multiple methods for reliability
-        $invoice = null;
-
-        // Method 1: Through payment hash (most reliable)
-        if ($payment_hash = PaymentHash::where('payment_id', $payment->id)->first()) {
-            $invoice = $payment_hash->fee_invoice ?? $payment_hash->paymentable;
-        }
-
-        if (!$invoice) {
-            return response()->json(['message' => 'No associated invoice found'], 200);
-        }
-
         return response()->json([
             'message' => 'Payment confirmed successfully',
-            'payment_id' => $payment->id,
-            'invoice_status' => $invoice->status_id,
-            'invoice_balance' => $invoice->balance
         ], 200);
     }
 

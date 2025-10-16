@@ -16,8 +16,6 @@ use App\Models\Payment;
 use App\Models\SystemLog;
 use App\Models\GatewayType;
 use App\Models\PaymentType;
-use App\Models\PaymentHash;
-use App\Models\Invoice;
 use App\Jobs\Util\SystemLogger;
 use App\Utils\Traits\MakesHash;
 use App\Exceptions\PaymentFailed;
@@ -167,10 +165,6 @@ class Blockonomics implements LivewireMethodInterface
                 2 => Payment::STATUS_COMPLETED,
                 default => Payment::STATUS_PENDING
             };
-
-            // Get payment hash and invoice before creating payment
-            $payment_hash = PaymentHash::where('hash', $request->payment_hash)->firstOrFail();
-            $invoice = $payment_hash->fee_invoice ?? $payment_hash->paymentable;
 
             // Create the payment - let InvoiceNinja handle the initial processing
             $payment = $this->blockonomics->createPayment($data, $statusId);
