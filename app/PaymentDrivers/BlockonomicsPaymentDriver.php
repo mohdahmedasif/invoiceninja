@@ -146,26 +146,6 @@ class BlockonomicsPaymentDriver extends BaseDriver
         return $this->payment_method->refund($payment, $amount); //this is your custom implementation from here
     }
 
-    //dead code? //2025-04-23
-    // public function testNewAddressGen($crypto = 'btc', $response): string
-    // {
-    //     $api_key = $this->company_gateway->getConfigField('apiKey');
-    //     $new_address_reset_url = $this->NEW_ADDRESS_URL . '?reset=1';
-    //     $new_address_response = Http::withToken($api_key)
-    //         ->post($new_address_reset_url, []);
-    //     if ($new_address_response->response_code != 200) {
-    //         return isset($new_address_response->response_message) && $new_address_response->response_message
-    //             ? $new_address_response->response_message
-    //             : 'Could not generate new address';
-    //     }
-
-    //     if (empty($new_address_response->address)) {
-    //         return 'No address returned from Blockonomics API';
-    //     }
-
-    //     return 'ok';
-    // }
-
     public function checkStores($stores): string
     {
         if (empty($stores['data'])) {
