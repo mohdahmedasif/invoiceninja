@@ -138,14 +138,13 @@ class BlockonomicsPaymentDriver extends BaseDriver
         $this->payment_hash = PaymentHash::where('payment_id', $payment->id)->firstOrFail();
         $invoices_data = $this->payment_hash->invoices();
 
-        $fiat_amount = $payment->amount;
         // How about recurring invoices?
         if (is_array($invoices_data)) {
             foreach ($invoices_data as $invoice_data) {
                 $invoice = Invoice::withTrashed()->find($this->decodePrimaryKey($invoice_data->invoice_id));
                 // Do I need to loop through each payment for the invoice?
                 if ($invoice) {
-                    $invoice->balance = $invoice->amount - $fiat_amount;
+                    $invoice->balance = $invoice->amount - $payment->amount;
                     $invoice->save();
                 }
             }
