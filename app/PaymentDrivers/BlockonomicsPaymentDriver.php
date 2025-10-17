@@ -145,6 +145,9 @@ class BlockonomicsPaymentDriver extends BaseDriver
                 // Do I need to loop through each payment for the invoice?
                 if ($invoice) {
                     $invoice->balance = $invoice->amount - $payment->amount;
+                    $invoice->status_id = $invoice->balance <= 0
+                        ? Invoice::STATUS_PAID
+                        : Invoice::STATUS_PARTIAL;
                     $invoice->save();
                 }
             }
