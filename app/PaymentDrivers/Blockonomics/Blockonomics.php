@@ -144,7 +144,13 @@ class Blockonomics implements LivewireMethodInterface
         ]);
 
         try {
-            $fiat_amount = round(($request->btc_price * $request->btc_amount / 100000000), 2);
+            // Satoshis is the smallest unit of Bitcoin
+            $amount_received_satoshis = $request->btc_amount;
+            $amount_satohis_in_one_btc = 100000000;
+            $amount_received_btc = $amount_received_satoshis / $amount_satohis_in_one_btc;
+            $price_per_btc_in_fiat = $request->btc_price;
+
+            $fiat_amount = round(($price_per_btc_in_fiat * $amount_received_btc), 2);
 
             $data = [
                 'amount' => $fiat_amount,
