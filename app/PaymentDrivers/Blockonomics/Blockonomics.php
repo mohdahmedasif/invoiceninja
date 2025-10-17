@@ -16,6 +16,8 @@ use App\Models\Payment;
 use App\Models\SystemLog;
 use App\Models\GatewayType;
 use App\Models\PaymentType;
+use App\Models\PaymentHash;
+use App\Models\Invoice;
 use App\Jobs\Util\SystemLogger;
 use App\Utils\Traits\MakesHash;
 use App\Exceptions\PaymentFailed;
@@ -142,6 +144,8 @@ class Blockonomics implements LivewireMethodInterface
             // and the validation will fail.
             // 'status' => ['required'],
         ]);
+
+        $this->payment_hash = PaymentHash::where('hash', $request->payment_hash)->firstOrFail();
 
         try {
             // Satoshis is the smallest unit of Bitcoin

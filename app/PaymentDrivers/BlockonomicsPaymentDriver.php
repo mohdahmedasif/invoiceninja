@@ -121,7 +121,7 @@ class BlockonomicsPaymentDriver extends BaseDriver
             return response()->json(['message' => 'Payment not found'], 200);
         }
 
-        // If payment is already completed, no need to process again
+        // // If payment is already completed, no need to process again
         if ($payment->status_id == Payment::STATUS_COMPLETED) {
             return response()->json(['message' => 'Payment already completed'], 200);
         }
@@ -134,6 +134,22 @@ class BlockonomicsPaymentDriver extends BaseDriver
         // Update payment to completed
         $payment->status_id = Payment::STATUS_COMPLETED;
         $payment->save();
+
+        $this->payment_hash = PaymentHash::where('payment_id', $payment->id)->firstOrFail();
+        $invoices_data = $this->payment_hash->invoices();
+
+        $fiat_amount = $payment->amount;
+        // How about recurring invoices?
+        if (is_array($invoices_data)) {
+            foreach ($invoices_data as $invoice_data) {
+                $invoice = Invoice::withTrashed()->find($this->decodePrimaryKey($invoice_data->invoice_id));
+                // Do I need to loop through each payment for the invoice?
+                if ($invoice) {
+                    $invoice->balance = $invoice->amount - $fiat_amount;
+                    $invoice->save();
+                }
+            }
+        }
 
         return response()->json([
             'message' => 'Payment confirmed successfully',
