@@ -5651,6 +5651,7 @@ $lang = array(
     'justify' => 'Justify',
     'outdent' => 'Outdent',
     'indent' => 'Indent',
+    'clear_filters' => 'Clear Filters',
 );
 
 return $lang;
