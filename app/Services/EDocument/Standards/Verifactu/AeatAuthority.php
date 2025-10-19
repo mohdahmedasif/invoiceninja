@@ -28,6 +28,11 @@ class AeatAuthority
     // Power code: LGTINVDI (or GENERALDATPE)
     // Confirm
     // https://sede.agenciatributaria.gob.es/wlpl/BDC/conapoderWS
+
+    /*
+    * Production URL works, sandbox URL does not!
+    */
+
     private string $base_url = 'https://sede.agenciatributaria.gob.es/wlpl/BDC/conapoderWS';
 
     private string $sandbox_url = 'https://prewww1.aeat.es/wlpl/BDC/conapoderWS';
@@ -88,6 +93,7 @@ XML;
 
         $success = $response->successful();
 
+        nlog($soapXml);
         $responseProcessor = new ResponseProcessor();
 
         $parsedResponse = $responseProcessor->processResponse($response->body());
