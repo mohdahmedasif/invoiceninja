@@ -22,7 +22,6 @@ use App\Helpers\Invoice\InvoiceSum;
 use InvoiceNinja\EInvoice\EInvoice;
 use App\Utils\Traits\NumberFormatter;
 use App\Helpers\Invoice\InvoiceSumInclusive;
-use App\Services\EDocument\Gateway\Qvalia\Qvalia;
 use InvoiceNinja\EInvoice\Models\Peppol\ItemType\Item;
 use App\Services\EDocument\Gateway\Storecove\Storecove;
 use InvoiceNinja\EInvoice\Models\Peppol\PartyType\Party;
@@ -140,9 +139,9 @@ class Peppol extends AbstractService
 
     private EInvoice $e;
 
-    private string $api_network = Storecove::class; // Storecove::class; // Qvalia::class;
+    private string $api_network = Storecove::class; // Storecove::class;
 
-    public Qvalia | Storecove $gateway;
+    public Storecove $gateway;
 
     private string $customizationID = 'urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0';
 
@@ -160,6 +159,7 @@ class Peppol extends AbstractService
 
     public function __construct(public Invoice $invoice)
     {
+        
         $this->company = $invoice->company;
         $this->calc = $this->invoice->calc();
         $this->e = new EInvoice();
@@ -1333,10 +1333,10 @@ class Peppol extends AbstractService
 
         }
 
-        if (!isset($this->p_invoice->InvoicePeriod)) {
-            $ip = new InvoicePeriod();
-            $ip->StartDate = new \DateTime($this->invoice->date);
-            $ip->EndDate = new \DateTime($this->invoice->due_date ?? $this->invoice->date);
+        if(isset($this->invoice->e_invoice->Invoice->InvoicePeriod[0])){
+            $ip = new \InvoiceNinja\EInvoice\Models\Peppol\PeriodType\InvoicePeriod();
+            $ip->StartDate = new \DateTime($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->StartDate);
+            $ip->EndDate = new \DateTime($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->EndDate);
             $this->p_invoice->InvoicePeriod = [$ip];
         }
 

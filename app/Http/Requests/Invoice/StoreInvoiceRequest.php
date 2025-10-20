@@ -12,12 +12,13 @@
 
 namespace App\Http\Requests\Invoice;
 
-use App\Http\Requests\Request;
-use App\Http\ValidationRules\Project\ValidProjectForClient;
 use App\Models\Invoice;
-use App\Utils\Traits\CleanLineItems;
+use App\Http\Requests\Request;
 use App\Utils\Traits\MakesHash;
 use Illuminate\Validation\Rule;
+use App\Utils\Traits\CleanLineItems;
+use App\Http\ValidationRules\Project\ValidProjectForClient;
+use App\Http\ValidationRules\Invoice\VerifactuAmountCheck;
 
 class StoreInvoiceRequest extends Request
 {
@@ -45,7 +46,7 @@ class StoreInvoiceRequest extends Request
 
         $rules = [];
 
-        $rules['client_id'] = ['required', 'bail', Rule::exists('clients', 'id')->where('company_id', $user->company()->id)->where('is_deleted', 0)];
+        $rules['client_id'] = ['required', 'bail', new VerifactuAmountCheck($this->all()) , Rule::exists('clients', 'id')->where('company_id', $user->company()->id)->where('is_deleted', 0)];
 
         $rules['file'] = 'bail|sometimes|array';
         $rules['file.*'] = $this->fileValidation();
@@ -62,7 +63,7 @@ class StoreInvoiceRequest extends Request
         $rules['date'] = 'bail|sometimes|date:Y-m-d';
         $rules['due_date'] = ['bail', 'sometimes', 'nullable', 'after:partial_due_date', Rule::requiredIf(fn () => strlen($this->partial_due_date ?? '') > 1), 'date'];
 
-        $rules['line_items'] = 'array';
+        $rules['line_items'] = ['bail', 'array'];
         $rules['discount'] = 'sometimes|numeric|max:99999999999999';
         $rules['tax_rate1'] = 'bail|sometimes|numeric';
         $rules['tax_rate2'] = 'bail|sometimes|numeric';
@@ -79,6 +80,8 @@ class StoreInvoiceRequest extends Request
         $rules['custom_surcharge3'] = ['sometimes', 'nullable', 'bail', 'numeric', 'max:99999999999999'];
         $rules['custom_surcharge4'] = ['sometimes', 'nullable', 'bail', 'numeric', 'max:99999999999999'];
         $rules['location_id'] = ['nullable', 'sometimes','bail', Rule::exists('locations', 'id')->where('company_id', $user->company()->id)->where('client_id', $this->client_id)];
+
+        // $rules['modified_invoice_id'] = ['bail', 'sometimes', 'nullable', new CanGenerateModificationInvoice()];
 
         return $rules;
     }

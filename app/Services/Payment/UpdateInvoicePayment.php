@@ -73,7 +73,10 @@ class UpdateInvoicePayment
                 $paid_amount = $invoice->balance;
             }
 
-            $client->service()->updateBalance($paid_amount * -1); //only ever use the amount applied to the invoice
+            // Catches an edge case where a payment on a deleted invoice reduces the client balance TWICE.
+            if(!$invoice->is_deleted) {
+                $client->service()->updateBalance($paid_amount * -1); //only ever use the amount applied to the invoice
+            }
 
             /*Improve performance here - 26-01-2022 - also change the order of events for invoice first*/
             //caution what if we amount paid was less than partial - we wipe it!
@@ -189,6 +192,7 @@ class UpdateInvoicePayment
         $this->payment->saveQuietly();
 
         $invoices->each(function ($invoice) {
+            /** @var Invoice $invoice */
             event('eloquent.updated: App\Models\Invoice', $invoice);
             event(new InvoiceWasUpdated($invoice, $invoice->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null)));
         });

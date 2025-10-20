@@ -49,8 +49,23 @@ class RefundPayment
                             ->save();
 
         if (array_key_exists('email_receipt', $this->refund_data) && $this->refund_data['email_receipt'] == 'true') {
-            $contact = $this->payment->client->contacts()->whereNotNull('email')->first();
-            EmailRefundPayment::dispatch($this->payment, $this->payment->company, $contact);
+
+            $payment_email_all_contacts = $this->payment->client->getSetting('payment_email_all_contacts');
+
+                $this->payment
+                    ->client
+                    ->contacts()
+                    ->where('send_email', true)
+                    ->whereNotNull('email')
+                    ->when(!$payment_email_all_contacts, function ($query) {
+                        return $query->orderBy('id','asc')->take(1);
+                    })
+                    ->cursor()
+                    ->each(function ($contact){
+
+                        EmailRefundPayment::dispatch($this->payment, $this->payment->company, $contact);
+
+                    });
         }
 
         $is_gateway_refund = ($this->refund_data['gateway_refund'] !== false || $this->refund_failed || (isset($this->refund_data['via_webhook']) && $this->refund_data['via_webhook'] !== false)) ? ctrans('texts.yes') : ctrans('texts.no');

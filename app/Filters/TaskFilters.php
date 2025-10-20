@@ -138,12 +138,14 @@ class TaskFilters extends QueryFilters
         $dir = ($sort_col[1] == 'asc') ? 'asc' : 'desc';
 
         if ($sort_col[0] == 'client_id') {
-            return $this->builder->orderBy(\App\Models\Client::select('name')
+            return $this->builder->orderByRaw('ISNULL(client_id), client_id '. $dir)
+                    ->orderBy(\App\Models\Client::select('name')
                     ->whereColumn('clients.id', 'tasks.client_id'), $dir);
         }
 
         if ($sort_col[0] == 'user_id') {
-            return $this->builder->orderBy(\App\Models\User::select('first_name')
+            return $this->builder->orderByRaw('ISNULL(user_id), user_id '. $dir)
+                    ->orderBy(\App\Models\User::select('first_name')
                     ->whereColumn('users.id', 'tasks.user_id'), $dir);
         }
 
@@ -162,6 +164,33 @@ class TaskFilters extends QueryFilters
 
         return $this->builder->where('user_id', $this->decodePrimaryKey($user));
 
+    }
+
+    public function client_ids(string $client_ids = ''): Builder
+    {
+        if (strlen($client_ids) == 0) {
+            return $this->builder;
+        }
+
+        return $this->builder->whereIn('client_id', $this->transformKeys(explode(',', $client_ids)));
+    }
+
+    public function project_ids(string $project_ids = ''): Builder
+    {
+        if (strlen($project_ids) == 0) {
+            return $this->builder;
+        }
+
+        return $this->builder->whereIn('project_id', $this->transformKeys(explode(',', $project_ids)));
+    }
+
+    public function assigned_user_ids(string $assigned_user_ids = ''): Builder
+    {
+        if (strlen($assigned_user_ids) == 0) {
+            return $this->builder;
+        }
+
+        return $this->builder->whereIn('assigned_user_id', $this->transformKeys(explode(',', $assigned_user_ids)));
     }
 
     public function assigned_user(string $user = ''): Builder
@@ -194,6 +223,31 @@ class TaskFilters extends QueryFilters
         return $this->builder;
     }
 
+    /**
+     * Filter by date range
+     *
+     * @param string $date_range
+     * @return Builder
+     */
+    public function date_range(string $date_range = ''): Builder
+    {
+        $parts = explode(",", $date_range);
+
+        if (count($parts) != 2 || !in_array('calculated_start_date', \Illuminate\Support\Facades\Schema::getColumnListing($this->builder->getModel()->getTable()))) {
+            return $this->builder;
+        }
+
+        try {
+
+            $start_date = \Carbon\Carbon::parse($parts[0]);
+            $end_date = \Carbon\Carbon::parse($parts[1]);
+
+            return $this->builder->whereBetween('calculated_start_date', [$start_date, $end_date]);
+        } catch (\Exception $e) {
+            return $this->builder;
+        }
+
+    }
 
     /**
      * Filters the query by the users company ID.

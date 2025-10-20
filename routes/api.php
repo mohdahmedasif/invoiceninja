@@ -50,6 +50,7 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\EInvoiceController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PostMarkController;
 use App\Http\Controllers\TemplateController;
@@ -191,6 +192,7 @@ Route::group(['middleware' => ['throttle:api', 'token_auth', 'valid_json','local
 
     Route::post('reactivate_email/{bounce_id}', [ClientController::class, 'reactivateEmail'])->name('clients.reactivate_email');
 
+    Route::post('feedback', FeedbackController::class)->name('feedback');
     Route::post('filters/{entity}', [FilterController::class, 'index'])->name('filters');
 
     Route::resource('client_gateway_tokens', ClientGatewayTokenController::class);
@@ -467,7 +469,7 @@ Route::group(['middleware' => ['throttle:api', 'token_auth', 'valid_json','local
 
 });
 
-Route::post('api/v1/sms_reset', [TwilioController::class, 'generate2faResetCode'])->name('sms_reset.generate')->middleware('throttle:1,2');
+Route::post('api/v1/sms_reset', [TwilioController::class, 'generate2faResetCode'])->name('sms_reset.generate')->middleware('throttle:2,1');
 Route::post('api/v1/sms_reset/confirm', [TwilioController::class, 'confirm2faResetCode'])->name('sms_reset.confirm')->middleware('throttle:5,1');
 
 Route::match(['get', 'post'], 'payment_webhook/{company_key}/{company_gateway_id}', PaymentWebhookController::class)

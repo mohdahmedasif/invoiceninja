@@ -81,6 +81,7 @@ class YodleeController extends BaseController
                 $bi->disabled_upstream = false;
                 $bi->balance = $account['current_balance'];
                 $bi->currency = $account['account_currency'];
+                $bi->integration_type = BankIntegration::INTEGRATION_TYPE_YODLEE;
                 $bi->save();
             } else {
                 $bank_integration = new BankIntegration();

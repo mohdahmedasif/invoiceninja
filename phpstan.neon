@@ -22,6 +22,8 @@ parameters:
             - 'app/Utils/Traits/*'
             - 'Modules/Accounting/*'
             - 'tests/*'
+            - 'Modules/Accounting/*'
+            - '~/.cursor/*'
     universalObjectCratesClasses:
         - App\DataMapper\Tax\RuleInterface
         - App\DataMapper\FeesAndLimits

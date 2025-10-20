@@ -90,11 +90,11 @@ class CreditTest extends TestCase
         $this->assertEquals(0, $i->balance);
         $this->assertEquals(100, $i->amount);
 
-
         $credit_array = $i->withoutRelations()->toArray();
         $credit_array['invoice_id'] = $i->hashed_id;
         $credit_array['client_id'] = $c->hashed_id;
-        
+        unset($credit_array['backup']);
+
         $response = $this->withHeaders([
                     'X-API-SECRET' => config('ninja.api_secret'),
                     'X-API-TOKEN' => $this->token,
@@ -216,7 +216,7 @@ class CreditTest extends TestCase
         $credit_array = $i->withoutRelations()->toArray();
         $credit_array['invoice_id'] = $i->hashed_id;
         $credit_array['client_id'] = $c->hashed_id;
-        
+        unset($credit_array['backup']);
         $response = $this->withHeaders([
                     'X-API-SECRET' => config('ninja.api_secret'),
                     'X-API-TOKEN' => $this->token,
@@ -416,6 +416,7 @@ class CreditTest extends TestCase
         $credit_array = $i->withoutRelations()->toArray();
         $credit_array['invoice_id'] = $i->hashed_id;
         $credit_array['client_id'] = $c->hashed_id;
+        unset($credit_array['backup']);
         
         $ii = new InvoiceItem();
         $ii->cost = 50;
@@ -423,12 +424,14 @@ class CreditTest extends TestCase
         $ii->product_key = 'xx';
         $ii->notes = 'yy';
 
-        $credit_array['line_items'] = [$ii];
+        
+        $credit_array['line_items'] = [];
+        $credit_array['line_items'][] = (array)$ii;
 
         $response = $this->withHeaders([
                     'X-API-SECRET' => config('ninja.api_secret'),
                     'X-API-TOKEN' => $this->token,
-                ])->post('/api/v1/credits', $credit_array);
+                ])->postJson('/api/v1/credits', $credit_array);
 
         $response->assertStatus(200);
         $arr = $response->json();
@@ -496,6 +499,8 @@ class CreditTest extends TestCase
         $credit_array = $i->withoutRelations()->toArray();
         $credit_array['invoice_id'] = $i->hashed_id;
         $credit_array['client_id'] = $c->hashed_id;
+
+        unset($credit_array['backup']);
         
         $ii = new InvoiceItem();
         $ii->cost = 100;
@@ -503,12 +508,14 @@ class CreditTest extends TestCase
         $ii->product_key = 'xx';
         $ii->notes = 'yy';
 
-        $credit_array['line_items'] = [$ii];
+
+$credit_array['line_items'] = [];
+$credit_array['line_items'][] = (array)$ii;
 
         $response = $this->withHeaders([
                     'X-API-SECRET' => config('ninja.api_secret'),
                     'X-API-TOKEN' => $this->token,
-                ])->post('/api/v1/credits', $credit_array);
+                ])->postJson('/api/v1/credits', $credit_array);
 
         $response->assertStatus(200);
         $arr = $response->json();
@@ -910,7 +917,7 @@ class CreditTest extends TestCase
 
         $response = $this->withHeaders([
             'X-API-TOKEN' => $this->token,
-        ])->post('/api/v1/credits/bulk', $data)
+        ])->postJson('/api/v1/credits/bulk', $data)
           ->assertStatus(200);
 
 
@@ -922,7 +929,7 @@ class CreditTest extends TestCase
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
-        ])->post('/api/v1/credits/bulk', $data)
+        ])->postJson('/api/v1/credits/bulk', $data)
           ->assertStatus(200);
 
         $data = [
@@ -933,7 +940,7 @@ class CreditTest extends TestCase
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
-        ])->post('/api/v1/credits/bulk', $data)
+        ])->postJson('/api/v1/credits/bulk', $data)
           ->assertStatus(200);
     }
 
@@ -1027,7 +1034,7 @@ class CreditTest extends TestCase
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
-        ])->post('/api/v1/credits/', $credit)
+        ])->postJson('/api/v1/credits/', $credit)
             ->assertStatus(200);
     }
 
@@ -1062,16 +1069,16 @@ class CreditTest extends TestCase
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
-        ])->post('/api/v1/credits', $data);
+        ])->postJson('/api/v1/credits', $data);
 
         $response->assertStatus(200);
 
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
-        ])->post('/api/v1/credits', $data);
+        ])->postJson('/api/v1/credits', $data);
 
-        $response->assertStatus(302);
+        $response->assertStatus(422);
     }
 
     public function testCreditPut()
@@ -1109,8 +1116,8 @@ class CreditTest extends TestCase
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
-        ])->post('/api/v1/credits/', $data);
+        ])->postJson('/api/v1/credits/', $data);
 
-        $response->assertStatus(302);
+        $response->assertStatus(422);
     }
 }

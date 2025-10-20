@@ -92,6 +92,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $reminder2_sent
  * @property string|null $reminder3_sent
  * @property string|null $reminder_last_sent
+ * @property object|null $tax_data
+ * @property object|null $e_invoice
+ * @property int|null $location_id
  * @property float $paid_to_date
  * @property int|null $location_id
  * @property object|null $e_invoice
@@ -123,6 +126,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property \App\Models\Vendor|null $vendor
  * @property-read \App\Models\Location|null $location
  * @property-read mixed $pivot
+ * @property-read \App\Models\Location|null $location
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Activity> $activities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CompanyLedger> $company_ledger
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Document> $documents

@@ -11,6 +11,7 @@
 
 namespace Tests\Feature\EInvoice;
 
+use Faker\Factory;
 use Tests\TestCase;
 use App\Models\Client;
 use App\Models\Company;
@@ -47,6 +48,9 @@ class PeppolTest extends TestCase
 
     protected int $iterations = 10;
 
+    
+    public $faker;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -54,6 +58,8 @@ class PeppolTest extends TestCase
         if (config('ninja.testvars.travis') !== false) {
             $this->markTestSkipped('Skip test for GH Actions');
         }
+
+        $this->faker = Factory::create();
 
         $this->makeTestData();
 
@@ -110,6 +116,7 @@ class PeppolTest extends TestCase
         $this->company->save();
         $company = $this->company;
 
+        /** @var Client $client */
         $client = Client::factory()->create([
             'user_id' => $this->user->id,
             'company_id' => $this->company->id,
@@ -122,15 +129,23 @@ class PeppolTest extends TestCase
             'id_number' => $params['client_id_number'] ?? '',
         ]);
 
+        $client->setRelation('company', $company);
+
+        /** @var ClientContact $contact */
         $contact = ClientContact::factory()->create([
             'client_id' => $client->id,
             'company_id' =>$client->company_id,
             'user_id' => $client->user_id,
             'first_name' => $this->faker->firstName(),
             'last_name' => $this->faker->lastName(),
-            'email' => $this->faker->safeEmail()
+            'email' => $this->faker->safeEmail(),
+            'is_primary' => true,
+            'send_email' => true,
         ]);
 
+        $client->setRelation('contacts', [$contact]);
+
+        /** @var Invoice $invoice */
         $invoice = \App\Models\Invoice::factory()->create([
             'client_id' => $client->id,
             'company_id' => $this->company->id,
@@ -144,8 +159,10 @@ class PeppolTest extends TestCase
             'tax_name2' => '',
             'tax_rate3' => 0,
             'tax_name3' => '',
+            'status_id' => Invoice::STATUS_DRAFT,
         ]);
 
+         
         $items = $invoice->line_items;
 
         foreach($items as &$item)
@@ -160,6 +177,9 @@ class PeppolTest extends TestCase
 
         $invoice->line_items = array_values($items);
         $invoice = $invoice->calc()->getInvoice();
+
+        $invoice->setRelation('client', $client);
+        $invoice->setRelation('company', $company);
 
         return compact('company', 'client', 'invoice');
     }
@@ -179,7 +199,6 @@ class PeppolTest extends TestCase
             'legal_entity_id' => 290868,
             'is_tax_exempt' => false,
         ];
-
 
         $entity_data = $this->setupTestData($scenario);
 
@@ -259,6 +278,17 @@ class PeppolTest extends TestCase
 
         $company->settings = $settings;
         $company->save();
+
+        $invoice->setRelation('company', $company);
+        $invoice->setRelation('client', $entity_data['client']);
+        $invoice->save();
+
+        $repo = new InvoiceRepository();
+        $invoice = $repo->save([], $invoice);
+
+        $invoice = $invoice->service()->markSent()->save();
+
+        $this->assertGreaterThan(0, $invoice->invitations()->count());
 
         $data = [
             'entity' => 'invoices',
@@ -517,10 +547,9 @@ class PeppolTest extends TestCase
         ];
         $invoice->save();
 
-        
         $repo = new InvoiceRepository();
         $invoice = $repo->save([], $invoice);
-
+        $invoice = $invoice->service()->markSent()->save();
 
         $company = $entity_data['company'];
         $settings = $company->settings;
