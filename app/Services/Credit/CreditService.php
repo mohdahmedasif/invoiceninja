@@ -80,9 +80,9 @@ class CreditService
         return $this;
     }
 
-    public function sendEmail($contact = null)
+    public function sendEmail($contact = null, $email_type = null)
     {
-        $send_email = new SendEmail($this->credit, null, $contact);
+        $send_email = new SendEmail($this->credit, $email_type, $contact);
 
         return $send_email->run();
     }
