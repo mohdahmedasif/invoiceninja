@@ -47,6 +47,54 @@ class ScheduleEntityTest extends TestCase
         );
     }
 
+    public function testSchedulerStoreAndUpdateWithTemplate()
+    {
+
+        $data = [
+            'name' => 'A test entity email scheduler',
+            'frequency_id' => RecurringInvoice::FREQUENCY_MONTHLY,
+            'next_run' => now()->format('Y-m-d'),
+            'template' => 'email_record',
+            'parameters' => [
+                'entity' => 'invoice',
+                'entity_id' => $this->invoice->hashed_id,
+                'template' => 'invoice',
+            ],
+        ];
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->token,
+        ])->postJson('/api/v1/task_schedulers', $data);
+
+        $response->assertStatus(200);
+
+        $this->assertEquals('invoice', $response->json('data.parameters.template'));
+
+        $schedule_id = $response->json('data.id');
+
+        $data = [
+            'name' => 'A test entity email scheduler',
+            'frequency_id' => RecurringInvoice::FREQUENCY_MONTHLY,
+            'next_run' => now()->format('Y-m-d'),
+            'template' => 'email_record',
+            'parameters' => [
+                'entity' => 'invoice',
+                'entity_id' => $this->invoice->hashed_id,
+                'template' => 'reminder1',
+            ],
+        ];
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->token,
+        ])->putJson('/api/v1/task_schedulers/' . $schedule_id, $data);
+
+        $response->assertStatus(200);
+
+        $this->assertEquals('reminder1', $response->json('data.parameters.template'));
+    }
+
     public function testSchedulerStore()
     {
 

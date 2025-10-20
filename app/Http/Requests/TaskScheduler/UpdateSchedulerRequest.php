@@ -14,6 +14,7 @@ namespace App\Http\Requests\TaskScheduler;
 
 use App\Http\Requests\Request;
 use App\Http\ValidationRules\Scheduler\ValidClientIds;
+use Illuminate\Validation\Rule;
 
 class UpdateSchedulerRequest extends Request
 {
@@ -36,6 +37,24 @@ class UpdateSchedulerRequest extends Request
                         'upcoming',
                         'converted',
                         'uninvoiced',
+    ];
+
+    public array $templates = [
+        'invoice',
+        'quote',
+        'credit',
+        'purchase_order',
+        'quote',
+        'credit',
+        'purchase_order',
+        'invoice',
+        'reminder1',
+        'reminder2',
+        'reminder3',
+        'reminder_endless',
+        'custom1',
+        'custom2',
+        'custom3',
     ];
 
     /**
@@ -74,6 +93,8 @@ class UpdateSchedulerRequest extends Request
             'parameters.auto_send' => ['bail','sometimes', 'boolean', 'required_if:template,invoice_outstanding_tasks'],
             // 'parameters.invoice_id' => ['bail','sometimes', 'string', 'required_if:template,payment_schedule'],
             'parameters.auto_bill' => ['bail','sometimes', 'boolean', 'required_if:template,payment_schedule'],
+            'parameters.template' => ['bail', 'sometimes', 'string', Rule::in($this->templates)],
+
             'parameters.schedule' => ['bail', 'array', 'required_if:template,payment_schedule','min:1'],
             'parameters.schedule.*.id' => ['bail','sometimes', 'integer'],
             'parameters.schedule.*.date' => ['bail','sometimes', 'date:Y-m-d'],

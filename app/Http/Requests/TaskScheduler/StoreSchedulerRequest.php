@@ -17,6 +17,7 @@ use App\Utils\Traits\MakesHash;
 use App\Http\ValidationRules\Scheduler\ValidClientIds;
 use App\Http\ValidationRules\Scheduler\InvoiceWithNoExistingSchedule;
 use App\Models\Invoice;
+use Illuminate\Validation\Rule;
 
 class StoreSchedulerRequest extends Request
 {
@@ -41,7 +42,24 @@ class StoreSchedulerRequest extends Request
                         'converted',
                         'uninvoiced',
     ];
-
+    
+    public array $templates = [
+        'invoice',
+        'quote',
+        'credit',
+        'purchase_order',
+        'quote',
+        'credit',
+        'purchase_order',
+        'invoice',
+        'reminder1',
+        'reminder2',
+        'reminder3',
+        'reminder_endless',
+        'custom1',
+        'custom2',
+        'custom3',
+    ];
     /**
      * Determine if the user is authorized to make this request.
      *
@@ -78,6 +96,7 @@ class StoreSchedulerRequest extends Request
             'parameters.auto_send' => ['bail','sometimes', 'boolean', 'required_if:template,invoice_outstanding_tasks'],
             'parameters.invoice_id' => ['bail', 'string', 'required_if:template,payment_schedule', new InvoiceWithNoExistingSchedule()],
             'parameters.auto_bill' => ['bail', 'boolean', 'required_if:template,payment_schedule'],
+            'parameters.template' => ['bail', 'sometimes', 'string', Rule::in($this->templates)],
             'parameters.schedule' => ['bail', 'array', 'required_if:template,payment_schedule', 'min:1'],
             'parameters.schedule.*.id' => ['bail','sometimes', 'integer'],
             'parameters.schedule.*.date' => ['bail','sometimes', 'date:Y-m-d'],

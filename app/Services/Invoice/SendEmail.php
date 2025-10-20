@@ -86,6 +86,7 @@ class SendEmail extends AbstractService
     {
 
         return match ($template) {
+            'invoice' => 'email_template_invoice',
             'reminder1' => 'email_template_reminder1',
             'reminder2' => 'email_template_reminder2',
             'reminder3' => 'email_template_reminder3',
@@ -93,7 +94,7 @@ class SendEmail extends AbstractService
             'custom1' => 'email_template_custom1',
             'custom2' => 'email_template_custom2',
             'custom3' => 'email_template_custom3',
-            default => "email_template_{$template}",
+            default => "email_template_invoice",
         };
 
     }

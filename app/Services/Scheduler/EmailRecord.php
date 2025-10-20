@@ -35,7 +35,10 @@ class EmailRecord
             $entity->service()->sendVerifactu();
         }
         else if ($entity) {
-            $entity->service()->markSent()->sendEmail();
+
+            $template = $this->scheduler->parameters['template'] ?? $this->scheduler->parameters['entity'];
+
+            $entity->service()->markSent()->sendEmail(email_type: $template);
         }
 
         $this->scheduler->forceDelete();
