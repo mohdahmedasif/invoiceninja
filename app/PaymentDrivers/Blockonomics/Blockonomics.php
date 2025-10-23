@@ -20,6 +20,7 @@ use App\Models\PaymentHash;
 use App\Models\Invoice;
 use App\Jobs\Util\SystemLogger;
 use App\Utils\Traits\MakesHash;
+use App\Utils\BcMath;
 use App\Exceptions\PaymentFailed;
 use Illuminate\Support\Facades\Http;
 use App\Jobs\Mail\PaymentFailureMailer;
@@ -154,12 +155,9 @@ class Blockonomics implements LivewireMethodInterface
         $payment_hash_data = $this->payment_hash->data;
         $expected_amount = $payment_hash_data->amount_with_fee;
 
-        // ALWAYS adjust invoice allocations to match actual received amount
-        if ($fiat_amount != $expected_amount) {
+        // Adjust invoice allocations to match actual received amount if the amounts don't match
+        if (!BcMath::equal($fiat_amount, $expected_amount)) {
             $this->adjustInvoiceAllocations($fiat_amount);
-
-            // CRITICAL: Reload both payment_hash references
-            $this->payment_hash = PaymentHash::where('hash', $request->payment_hash)->firstOrFail();
 
             // Update the blockonomics driver's payment_hash reference
             // This is the key - the driver needs the updated payment_hash
@@ -205,7 +203,6 @@ class Blockonomics implements LivewireMethodInterface
             $blockonomics = $this->blockonomics;
             PaymentFailureMailer::dispatch(
                 $blockonomics->client,
-                $blockonomics->payment_hash->data,
                 $blockonomics->client->company,
                 $fiat_amount
             );
@@ -240,7 +237,7 @@ class Blockonomics implements LivewireMethodInterface
 
             $invoice_amount = $invoice->amount;
 
-            if ($remaining_amount >= $invoice_amount) {
+            if (BcMath::greaterThan($remaining_amount, $invoice_amount)) {
                 // Full payment for this invoice - keep all original data
                 $adjusted_invoices[] = (object)[
                     'invoice_id' => $invoice->invoice_id,
