@@ -496,6 +496,10 @@ class ZugferdEDocument extends AbstractService
             );
         }
 
+        if(isset($this->document->e_invoice->Invoice->Delivery[0]->ActualDeliveryDate)){
+            $this->xdocument->setDocumentSupplyChainEvent(new \DateTime($this->document->e_invoice->Invoice->Delivery[0]->ActualDeliveryDate));
+        }
+
         return $this;
     }
 
