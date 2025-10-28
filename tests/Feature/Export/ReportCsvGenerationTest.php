@@ -540,6 +540,7 @@ $this->account->forceDelete();
             'report_keys' => [],
             'send_email' => false,
             'include_deleted' => false,
+            'user_id' => $this->user->id,
             // 'status' => 'sometimes|string|nullable|in:all,draft,sent,viewed,paid,unpaid,overdue',
         ];
 
@@ -591,6 +592,7 @@ $this->account->forceDelete();
             'report_keys' => ["vendor.name", "vendor.city", "vendor.number"],
             'send_email' => false,
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -703,6 +705,7 @@ $this->account->forceDelete();
             ],
             'send_email' => false,
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -751,6 +754,7 @@ $this->account->forceDelete();
             'date_range' => 'all',
             'report_keys' => $this->all_client_report_keys,
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
 
@@ -862,6 +866,7 @@ $this->account->forceDelete();
             'report_keys' => [],
             'send_email' => false,
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -965,6 +970,7 @@ $invoice = $repo->save([], $invoice);
             ],
             'send_email' => false,
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -1017,6 +1023,7 @@ $invoice = $repo->save([], $invoice);
             'date_range' => 'all',
             'report_keys' => $this->all_client_report_keys,
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
 
@@ -1031,6 +1038,7 @@ $invoice = $repo->save([], $invoice);
             'date_range' => 'all',
             'report_keys' => array_merge(["payment.amount","payment.date"], $this->all_invoice_report_keys),
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -1070,6 +1078,7 @@ $this->account->forceDelete();
             'date_range' => 'all',
             'report_keys' => [],
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
