@@ -139,7 +139,8 @@ class EInvoiceReportTest extends TestCase
             'start_date' => '2000-01-01',
             'end_date' => '2030-01-11',
             'date_range' => 'custom',
-            'report_keys' => []
+            'report_keys' => [],
+            'user_id' => $this->user->id,
         ];
 
         $guid = new \stdClass;

@@ -48,6 +48,7 @@ class ReportApiTest extends TestCase
             'send_email' => false,
             'date_range' => 'all',
             'report_keys' => [],
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -64,6 +65,7 @@ class ReportApiTest extends TestCase
             'send_email' => false,
             'date_range' => 'all',
             'report_keys' => [],
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -81,6 +83,7 @@ class ReportApiTest extends TestCase
             'send_email' => false,
             'date_range' => 'all',
             'report_keys' => [],
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -98,6 +101,7 @@ class ReportApiTest extends TestCase
             'send_email' => false,
             'date_range' => 'all',
             'report_keys' => [],
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -115,6 +119,7 @@ class ReportApiTest extends TestCase
             'send_email' => false,
             'date_range' => 'all',
             'report_keys' => [],
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -149,6 +154,7 @@ class ReportApiTest extends TestCase
             'send_email' => false,
             'date_range' => 'all',
             'report_keys' => [],
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([

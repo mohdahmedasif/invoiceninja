@@ -106,6 +106,7 @@ class ProfitAndLossReportTest extends TestCase
             'date_range' => 'custom',
             'is_income_billed' => true,
             'include_tax' => false,
+            'user_id' => $this->user->id,
         ];
     }
 
@@ -354,6 +355,7 @@ class ProfitAndLossReportTest extends TestCase
             'date_range' => 'custom',
             'is_income_billed' => false,
             'include_tax' => false,
+            'user_id' => $this->user->id,
         ];
 
         $settings = ClientSettings::defaults();

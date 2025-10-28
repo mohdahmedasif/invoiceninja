@@ -43,6 +43,7 @@ class ClientCsvTest extends TestCase
             'date_range' => 'this_year',
             'report_keys' => [],
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -59,6 +60,7 @@ class ClientCsvTest extends TestCase
             'date_range' => 'this_year',
             'report_keys' => [],
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -75,6 +77,7 @@ class ClientCsvTest extends TestCase
             'date_range' => 'this_year',
             'report_keys' => [],
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -91,6 +94,7 @@ class ClientCsvTest extends TestCase
             'date_range' => 'this_year',
             'report_keys' => [],
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -107,6 +111,7 @@ class ClientCsvTest extends TestCase
             'date_range' => 'this_year',
             'report_keys' => [],
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -123,6 +128,7 @@ class ClientCsvTest extends TestCase
             'date_range' => 'this_year',
             'report_keys' => [],
             'send_email' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([

@@ -71,6 +71,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -103,6 +104,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -135,6 +137,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -168,6 +171,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -202,6 +206,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -237,6 +242,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -299,6 +305,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -386,7 +393,8 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
-        ];
+            'user_id' => $this->user->id,
+                ];
 
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
@@ -399,6 +407,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => ['client.name','client.balance'],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
 
@@ -421,6 +430,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -434,8 +444,8 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => ['client.name','client.balance','contact.email'],
             'include_deleted' => false,
+            'user_id' => $this->user->id,   
         ];
-
 
         $p = (new PreviewReport($this->company, $data, ContactExport::class, '123'))->handle();
 
@@ -454,6 +464,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -482,6 +493,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $p = (new PreviewReport($this->company, $data, CreditExport::class, '123'))->handle();
@@ -501,6 +513,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
