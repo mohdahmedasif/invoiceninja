@@ -267,7 +267,7 @@ class TaskExport extends BaseExport
      */
     protected function addTaskStatusFilter(Builder $query, string $status): Builder
     {
-        nlog(['addTaskStatusFilter', $status]);
+        
         /** @var array $status_parameters */
         $status_parameters = explode(',', $status);
 
