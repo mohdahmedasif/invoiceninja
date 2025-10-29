@@ -159,7 +159,7 @@ class Peppol extends AbstractService
 
     public function __construct(public Invoice $invoice)
     {
-        
+
         $this->company = $invoice->company;
         $this->calc = $this->invoice->calc();
         $this->e = new EInvoice();
@@ -723,7 +723,7 @@ class Peppol extends AbstractService
             $tax_type = 'G'; //Free export item, VAT not charged
             $reason_code = 'vatex-eu-g';
             $reason = 'Export outside the EU';
-        } elseif($this->invoice->client->country->iso_3166_2 == $this->company->country()->iso_3166_2) {
+        } elseif ($this->invoice->client->country->iso_3166_2 == $this->company->country()->iso_3166_2) {
             $tax_type = 'E';
             $reason_code = "vatex-eu-o";
             $reason = 'Services outside scope of tax';
@@ -1224,7 +1224,7 @@ class Peppol extends AbstractService
         $location->Address = $address;
         $delivery->DeliveryLocation = $location;
 
-        if(isset($this->invoice->e_invoice->Invoice->Delivery[0]->ActualDeliveryDate->date)){
+        if (isset($this->invoice->e_invoice->Invoice->Delivery[0]->ActualDeliveryDate->date)) {
             $delivery->ActualDeliveryDate = new \DateTime($this->invoice->e_invoice->Invoice->Delivery[0]->ActualDeliveryDate->date);
         }
 
@@ -1344,7 +1344,7 @@ class Peppol extends AbstractService
 
         }
 
-        if(isset($this->invoice->e_invoice->Invoice->InvoicePeriod[0])){
+        if (isset($this->invoice->e_invoice->Invoice->InvoicePeriod[0])) {
             $ip = new \InvoiceNinja\EInvoice\Models\Peppol\PeriodType\InvoicePeriod();
             $ip->StartDate = new \DateTime($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->StartDate);
             $ip->EndDate = new \DateTime($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->EndDate);
