@@ -145,6 +145,8 @@ class UpdateSchedulerRequest extends Request
             $input['remaining_cycles'] = count($input['parameters']['schedule']);
         }
 
+        $input['parameters']['user_id'] = auth()->user()->id;
+        
         $this->replace($input);
 
     }

@@ -421,9 +421,7 @@ class SchedulerTest extends TestCase
             'X-API-TOKEN' => $this->token,
         ])->postJson('/api/v1/task_schedulers', $data);
 
-                $response->assertStatus(200);
-
-
+        $response->assertStatus(200);
 
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
@@ -432,9 +430,7 @@ class SchedulerTest extends TestCase
 
         $response->assertStatus(422);
 
-
     }
-
 
     public function testPaymentScheduleWithPercentageBasedScheduleAndFailingValidation()
     {
@@ -469,14 +465,13 @@ class SchedulerTest extends TestCase
         ];
         
         $response = $this->withHeaders([
-                    'X-API-SECRET' => config('ninja.api_secret'),
-                    'X-API-TOKEN' => $this->token,
-                ])->postJson('/api/v1/invoices/'.$invoice->hashed_id.'/payment_schedule?show_schedule=true', $data);
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->token,
+        ])->postJson('/api/v1/invoices/'.$invoice->hashed_id.'/payment_schedule?show_schedule=true', $data);
 
         $response->assertStatus(422);
 
     }
-
     
     public function testPaymentScheduleWithPercentageBasedSchedule()
     {
@@ -611,8 +606,6 @@ class SchedulerTest extends TestCase
         $this->assertEquals($date->addMonthNoOverflow()->format($this->company->date_format()), $arr['data']['schedule'][1]['date']);
         $this->assertEquals($date->addMonthNoOverflow()->format($this->company->date_format()), $arr['data']['schedule'][2]['date']);
     }
-
-  
 
     public function testPaymentSchedule()
     {
@@ -777,7 +770,7 @@ class SchedulerTest extends TestCase
                 'report_keys' => [],
                 'client_id' => $this->client->hashed_id,
                 'report_name' => 'product_sales',
-
+                'user_id' => $this->user->id,
             ],
         ];
 
@@ -821,6 +814,7 @@ class SchedulerTest extends TestCase
                 'report_keys' => [],
                 'client_id' => null,
                 'report_name' => 'product_sales',
+                'user_id' => $this->user->id,
             ],
         ];
 
@@ -863,6 +857,7 @@ class SchedulerTest extends TestCase
                 'report_keys' => [],
                 'client_id' => null,
                 'report_name' => 'product_sales',
+                'user_id' => $this->user->id,
             ],
         ];
 
@@ -900,6 +895,7 @@ class SchedulerTest extends TestCase
                 'date_range' => EmailStatement::LAST_MONTH,
                 'clients' => [],
                 'report_name' => 'product_sales',
+                'user_id' => $this->user->id,
             ],
         ];
 
@@ -960,6 +956,7 @@ class SchedulerTest extends TestCase
             'next_run' => now()->format('Y-m-d'),
             'template' => 'client_statement',
             'parameters' => [
+                'user_id' => $this->user->id,
                 'date_range' => EmailStatement::CUSTOM_RANGE,
                 'show_payments_table' => true,
                 'show_aging_table' => true,
@@ -986,6 +983,7 @@ class SchedulerTest extends TestCase
             'next_run' => now()->format('Y-m-d'),
             'template' => 'client_statement',
             'parameters' => [
+                'user_id' => $this->user->id,
                 'date_range' => EmailStatement::CUSTOM_RANGE,
                 'show_payments_table' => true,
                 'show_aging_table' => true,
@@ -1016,7 +1014,8 @@ class SchedulerTest extends TestCase
                 'status' => 'paid',
                 'clients' => [],
                 'start_date' => now()->format('Y-m-d'),
-                'end_date' => null
+                'end_date' => null,
+                'user_id' => $this->user->id,
             ],
         ];
 
@@ -1039,7 +1038,8 @@ class SchedulerTest extends TestCase
                 'status' => 'paid',
                 'clients' => [],
                 'start_date' => null,
-                'end_date' => now()->format('Y-m-d')
+                'end_date' => now()->format('Y-m-d'),
+                'user_id' => $this->user->id,
             ],
         ];
 
@@ -1064,7 +1064,8 @@ class SchedulerTest extends TestCase
                 'status' => 'paid',
                 'clients' => [],
                 'start_date' => '',
-                'end_date' => ''
+                'end_date' => '',
+                'user_id' => $this->user->id,
             ],
         ];
 

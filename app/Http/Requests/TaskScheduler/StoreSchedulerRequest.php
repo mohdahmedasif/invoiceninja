@@ -151,6 +151,8 @@ class StoreSchedulerRequest extends Request
             $input['name'] = ctrans('texts.invoice_outstanding_tasks');
         }
 
+        $input['parameters']['user_id'] = auth()->user()->id;
+
         $this->replace($input);
     }
 
