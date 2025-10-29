@@ -274,6 +274,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -336,6 +337,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
@@ -368,6 +370,7 @@ class ReportPreviewTest extends TestCase
             'date_range' => 'all',
             'report_keys' => [],
             'include_deleted' => false,
+            'user_id' => $this->user->id,
         ];
 
         $response = $this->withHeaders([
