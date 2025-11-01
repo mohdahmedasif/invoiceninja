@@ -1292,6 +1292,7 @@ $products = str_getcsv($this->input['product_key'], ',', "'");
                 return $query;
             case 'last7':
             case 'last_7_days':
+            case 'last7_days':
                 $this->start_date = now()->subDays(7)->format('Y-m-d');
                 $this->end_date = now()->format('Y-m-d');
                 return $query->whereBetween($this->date_key, [now()->subDays(7), now()])->orderBy($this->date_key, 'ASC');
