@@ -149,8 +149,18 @@ class TemplateService
         $this->twig->addFilter($filter);
 
 
+        $filter = new \Twig\TwigFilter('groupBy', \Closure::fromCallable(function (?iterable $items, ?string $property) {
+            if ($items === null || $property === null) {
+                return [];
+            }
+
+            return collect($items)->groupBy($property)->toArray();
+            
+        }));
+        $this->twig->addFilter($filter);
+
         $allowedTags = ['if', 'for', 'set', 'filter'];
-        $allowedFilters = ['capitalize', 'abs', 'date_modify', 'keys', 'join', 'reduce', 'format_date','json_decode','date_modify','trim','round','format_spellout_number','split', 'reduce','replace', 'escape', 'e', 'reverse', 'shuffle', 'slice', 'batch', 'title', 'sort', 'split', 'upper', 'lower', 'capitalize', 'filter', 'length', 'merge','format_currency', 'format_number','format_percent_number','map', 'join', 'first', 'date', 'sum', 'number_format','nl2br','striptags','markdown_to_html'];
+        $allowedFilters = ['groupBy','capitalize', 'abs', 'date_modify', 'keys', 'join', 'reduce', 'format_date','json_decode','date_modify','trim','round','format_spellout_number','split', 'reduce','replace', 'escape', 'e', 'reverse', 'shuffle', 'slice', 'batch', 'title', 'sort', 'split', 'upper', 'lower', 'capitalize', 'filter', 'length', 'merge','format_currency', 'format_number','format_percent_number','map', 'join', 'first', 'date', 'sum', 'number_format','nl2br','striptags','markdown_to_html'];
         $allowedFunctions = ['range', 'cycle', 'constant', 'date','img','t'];
         $allowedProperties = ['type_id'];
         // $allowedMethods = ['img','t'];
@@ -1007,6 +1017,7 @@ class TemplateService
             'address1' => $entity->client->address1 ?: '',
             'address2' => $entity->client->address2 ?: '',
             'phone' => $entity->client->phone ?: '',
+            'group' => $entity->client->group_settings ? $entity->client->group_settings->name : '',
             'city' => $entity->client->city ?: '',
             'state' => $entity->client->state ?: '',
             'postal_code' => $entity->client->postal_code ?: '',
@@ -1024,6 +1035,7 @@ class TemplateService
             'address' => $entity->client->present()->address(),
             'shipping_address' => $entity->client->present()->shipping_address(),
             'locale' => substr($entity->client->locale(), 0, 2),
+            'location' => $entity->service()->location(false),
             ] : [];
     }
 
@@ -1224,6 +1236,7 @@ class TemplateService
 
         return collect($purchase_orders)->map(function ($purchase_order) {
 
+            /** @var PurchaseOrder $purchase_order */
             return [
                 'vendor' => $purchase_order->vendor ? [
                     'name' => $purchase_order->vendor->present()->name(),
