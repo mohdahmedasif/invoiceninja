@@ -151,16 +151,17 @@ class TemplateService
 
         $filter = new \Twig\TwigFilter('groupBy', \Closure::fromCallable(function (?iterable $items, ?string $property) {
             if ($items === null || $property === null) {
-                return [];
+                return [$items];
             }
 
-            return collect($items)->groupBy($property)->toArray();
+            $x = collect($items)->groupBy($property)->toArray();
             
+            return $x;
         }));
         $this->twig->addFilter($filter);
 
         $allowedTags = ['if', 'for', 'set', 'filter'];
-        $allowedFilters = ['groupBy','capitalize', 'abs', 'date_modify', 'keys', 'join', 'reduce', 'format_date','json_decode','date_modify','trim','round','format_spellout_number','split', 'reduce','replace', 'escape', 'e', 'reverse', 'shuffle', 'slice', 'batch', 'title', 'sort', 'split', 'upper', 'lower', 'capitalize', 'filter', 'length', 'merge','format_currency', 'format_number','format_percent_number','map', 'join', 'first', 'date', 'sum', 'number_format','nl2br','striptags','markdown_to_html'];
+        $allowedFilters = ['default', 'groupBy','capitalize', 'abs', 'date_modify', 'keys', 'join', 'reduce', 'format_date','json_decode','date_modify','trim','round','format_spellout_number','split', 'reduce','replace', 'escape', 'e', 'reverse', 'shuffle', 'slice', 'batch', 'title', 'sort', 'split', 'upper', 'lower', 'capitalize', 'filter', 'length', 'merge','format_currency', 'format_number','format_percent_number','map', 'join', 'first', 'date', 'sum', 'number_format','nl2br','striptags','markdown_to_html'];
         $allowedFunctions = ['range', 'cycle', 'constant', 'date','img','t'];
         $allowedProperties = ['type_id'];
         // $allowedMethods = ['img','t'];
@@ -523,7 +524,7 @@ class TemplateService
 
             $processed = [];
 
-            if (in_array($key, ['aging', 'unapplied']) || !$value->first() || (in_array($key, ['projects','tasks']) && !$value->first()->client)) {
+            if (in_array($key, ['aging', 'unapplied', 'start_date', 'end_date']) || !$value->first() || (in_array($key, ['projects', 'tasks']) && !$value->first()->client)) {
                 return $processed;
             }
 
@@ -1035,7 +1036,7 @@ class TemplateService
             'address' => $entity->client->present()->address(),
             'shipping_address' => $entity->client->present()->shipping_address(),
             'locale' => substr($entity->client->locale(), 0, 2),
-            'location' => $entity->service()->location(false),
+            'location' => $entity->location ? $entity->service()->location(false) : [],
             ] : [];
     }
 
