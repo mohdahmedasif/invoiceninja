@@ -25,7 +25,8 @@ class StoreDesignRequest extends Request
         'credit',
         'purchase_order',
         'project',
-        'task'
+        'task',
+        'expense'
     ];
 
     /**

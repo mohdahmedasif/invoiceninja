@@ -28,7 +28,8 @@ class UpdateDesignRequest extends Request
         'credit',
         'purchase_order',
         'project',
-        'task'
+        'task',
+        'expense'
     ];
 
     /**
