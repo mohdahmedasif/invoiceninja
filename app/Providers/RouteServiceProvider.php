@@ -58,7 +58,7 @@ class RouteServiceProvider extends ServiceProvider
             if (Ninja::isSelfHost()) {
                 return Limit::none();
             } else {
-                return Limit::perMinute(10)->by($request->ip());
+                return Limit::perMinute(4)->by($request->ip());
             }
         });
 
