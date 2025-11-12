@@ -249,25 +249,18 @@ class TemplateEngine
 
 
         if ($email_style == 'custom') {
-            $wrapper = $this->settings_entity->getSetting('email_style_custom');
+            $wrapper = $this->settings_entity->getSetting('email_style_custom') ?? '';
 
             // In order to parse variables such as $signature in the body,
             // we need to replace strings with the values from HTMLEngine.
             $wrapper = strtr($wrapper, $this->labels_and_values['values']);
 
-            /*If no custom design exists, send back a blank!*/
-            if (strlen($wrapper ?? '') > 1) {
-            } else {
-                $wrapper = '';
-            }
         } elseif ($email_style == 'plain') {
             $wrapper = view($this->getTemplatePath($email_style), $data)->render();
-            $injection = '';
-            $wrapper = str_replace('<head>', $injection, $wrapper);
+            $wrapper = str_replace('<head>', '', $wrapper);
         } else {
             $wrapper = view($this->getTemplatePath('client'), $data)->render();
-            $injection = '';
-            $wrapper = str_replace('<head>', $injection, $wrapper);
+            $wrapper = str_replace('<head>', '', $wrapper);
         }
 
         $data = [
