@@ -241,6 +241,8 @@ class InvoiceController extends BaseController
 
         event(new InvoiceWasCreated($invoice, $invoice->company, Ninja::eventVars($user ? $user->id : null)));
 
+        \Illuminate\Support\Facades\Cache::forget($request->lock_key);
+        
         return $this->itemResponse($invoice);
     }
 
