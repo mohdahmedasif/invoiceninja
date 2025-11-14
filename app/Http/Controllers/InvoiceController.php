@@ -528,7 +528,7 @@ class InvoiceController extends BaseController
          */
 
         if ($action == 'bulk_download' && $invoices->count() > 1) {
-            $invoices->each(function ($invoice) use ($user) {
+            $invoices->each(function ($invoice) use ($user, $request) {
                 if ($user->cannot('view', $invoice)) {
                     \Illuminate\Support\Facades\Cache::forget($request->lock_key);
                     return response()->json(['message' => ctrans('text.access_denied')]);
