@@ -53,6 +53,7 @@ class TaxPeriodReport extends BaseExport
             'start_date',
             'end_date',
             'client_id',
+            'is_income_billed',
         ]
     */
     public function __construct(public Company $company, public array $input)
