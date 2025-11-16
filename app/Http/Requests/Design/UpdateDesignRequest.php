@@ -81,7 +81,7 @@ class UpdateDesignRequest extends Request
             $input['design']['body'] = '';
         }
 
-        if (array_key_exists('entities', $input)) {
+        if (array_key_exists('entities', $input) && is_string($input['entities'])) {
             $user_entities = explode(",", $input['entities']);
 
             $e = [];
