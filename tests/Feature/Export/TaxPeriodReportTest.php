@@ -218,8 +218,36 @@ class TaxPeriodReportTest extends TestCase
 
         $this->assertNotEmpty($data);
 
-        nlog($data);
+
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false,
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
         
+        $this->assertCount(1,$data['invoices']);
+        $this->assertCount(1,$data['invoice_items']);
+        
+        $invoice->service()->markPaid()->save();
+
+        $invoice->fresh();
+        
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false,
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+        
+        $this->assertCount(2,$data['invoices']);
+        $this->assertCount(2,$data['invoice_items']);
 
     }
     
