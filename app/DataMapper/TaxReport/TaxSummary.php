@@ -19,7 +19,7 @@ class TaxSummary
 {
     public float $total_taxes; // Tax collected and confirmed (ie. Invoice Paid)
     public float $total_paid; // Tax pending collection (Outstanding tax of balance owing)
-    public string $status;
+    public string $status; // updated, deleted, cancelled
     public float $adjustment;
     public function __construct(array $attributes = [])
     {

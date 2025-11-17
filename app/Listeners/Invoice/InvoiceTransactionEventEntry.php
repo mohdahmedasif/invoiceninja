@@ -12,24 +12,19 @@
 
 namespace App\Listeners\Invoice;
 
+use App\Utils\BcMath;
 use App\Models\Invoice;
-use App\Models\Activity;
 use App\Models\TransactionEvent;
 use Illuminate\Support\Collection;
-use App\DataMapper\TaxReport\TaxDetail;
-use App\DataMapper\TaxReport\TaxReport;
-use App\DataMapper\TaxReport\TaxSummary;
-use App\Repositories\ActivityRepository;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use App\DataMapper\TransactionEventMetadata;
-use Illuminate\Queue\Middleware\WithoutOverlapping;
-
 class InvoiceTransactionEventEntry
 {
 
     private Collection $payments;
 
     private float $paid_ratio;
+
+    private string $entry_type = 'updated';
 
     /**
      * Handle the event.
@@ -44,7 +39,37 @@ class InvoiceTransactionEventEntry
         
         $this->setPaidRatio($invoice);
 
-        $period = $force_period ?? now()->endOfMonth()->format('Y-m-d');
+        $event = $invoice->transaction_events()
+                        ->where('event_id', TransactionEvent::INVOICE_UPDATED)
+                        ->orderBy('timestamp', 'desc')
+                        ->first();
+
+
+        if($event){
+
+            $this->entry_type = 'delta';
+            
+            if($invoice->is_deleted && $event->metadata->tax_report->tax_summary->status == 'deleted'){ 
+                // Invoice was previously deleted, and is still deleted... return early!!
+                return;
+            }
+            else if(in_array($invoice->status_id,[Invoice::STATUS_CANCELLED]) && $event->metadata->tax_report->tax_summary->status == 'cancelled'){
+                // Invoice was previously cancelled, and is still cancelled... return early!!
+                return;
+            }
+            else if (!$invoice->is_deleted && $event->metadata->tax_report->tax_summary->status == 'deleted'){
+                //restored invoice must be reported!!!! _do not return early!!
+                $this->entry_type = 'restored';
+            }
+            /** If the invoice hasn't changed its state... return early!! */
+            else if(BcMath::comp($invoice->amount, $event->invoice_amount) == 0){
+                return;
+            }
+
+        }
+
+        //Long running tasks may spill over into the next day therefore month!
+        $period = $force_period ?? now()->endOfMonth()->subHours(5)->format('Y-m-d');
         
         $this->payments = $invoice->payments->flatMap(function ($payment) {
             return $payment->invoices()->get()->map(function ($invoice) use ($payment) {
@@ -90,6 +115,53 @@ class InvoiceTransactionEventEntry
     private function calculateRatio(float $amount): float
     {
         return round($amount * $this->paid_ratio, 2);
+    }
+        
+    /**
+     * calculateDeltaMetaData
+     *
+     * Calculates the differential between this period and the previous period.
+     * 
+     * @param  mixed $invoice
+     *
+     */
+    private function calculateDeltaMetaData($invoice)
+    {
+        $calc = $invoice->calc();
+
+        $details = [];
+
+        $taxes = array_merge($calc->getTaxMap()->merge($calc->getTotalTaxMap())->toArray());
+
+        $previous_transaction_event = TransactionEvent::where('event_id', TransactionEvent::INVOICE_UPDATED)
+                                            ->where('invoice_id', $invoice->id)
+                                            ->orderBy('timestamp', 'desc')
+                                            ->first();
+
+        foreach ($taxes as $tax) {
+            $tax_detail = [
+                'tax_name' => $tax['name'],
+                'tax_rate' => $tax['tax_rate'],
+                'taxable_amount' => $tax['base_amount'] ?? $calc->getNetSubtotal(),
+                'tax_amount' => $this->calculateRatio($tax['total']),
+                'tax_amount_paid' => $this->calculateRatio($tax['total']),
+                'tax_amount_remaining' => 0,
+            ];
+            $details[] = $tax_detail;
+        }
+
+        return new TransactionEventMetadata([
+            'tax_report' => [
+                'tax_details' => $details,
+                'payment_history' => $this->payments->toArray() ?? [], //@phpstan-ignore-line
+                'tax_summary' => [
+                    'total_taxes' => $invoice->total_taxes,
+                    'total_paid' => $this->getTotalTaxPaid($invoice),
+                    'status' => 'updated',
+                    'adjustment' => round($invoice->amount - $previous_transaction_event->invoice_amount,2)
+                ],
+            ],
+        ]);
     }
     
     /**
@@ -164,7 +236,7 @@ class InvoiceTransactionEventEntry
                 'payment_history' => $this->payments->toArray(),
                 'tax_summary' => [
                     'total_taxes' => $invoice->total_taxes,
-                    'total_paid' => $this->getTotalTaxPaid($invoice),0,
+                    'total_paid' => $this->getTotalTaxPaid($invoice),
                     'status' => 'deleted',
                 ],
             ],
@@ -179,6 +251,8 @@ class InvoiceTransactionEventEntry
             return $this->getCancelledMetaData($invoice);
         } elseif ($invoice->is_deleted) {
             return $this->getDeletedMetaData($invoice);
+        } elseif ($this->entry_type == 'delta') {
+            return $this->calculateDeltaMetaData($invoice);
         }
 
         $calc = $invoice->calc();
