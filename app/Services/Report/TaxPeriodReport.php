@@ -536,7 +536,7 @@ class TaxPeriodReport extends BaseExport
         $this->data['invoices'][] = [
             $invoice->number,
             $invoice->date,
-            $invoice->metadata->tax_report->tax_summary->adjustment,
+            $state->metadata->tax_report->tax_summary->adjustment,
             $state->metadata->tax_report->payment_history?->sum('amount') ?? 0,
             $state->metadata->tax_report->tax_summary->tax_adjustment,
             $state->metadata->tax_report->tax_summary->total_paid,

@@ -199,7 +199,7 @@ class TaxPeriodReportTest extends TestCase
 
         $transaction_event = $invoice->transaction_events()->first();
 
-        nlog($transaction_event->metadata->toArray());
+        // nlog($transaction_event->metadata->toArray());
         $this->assertNotNull($transaction_event);
         $this->assertEquals(330, $transaction_event->invoice_amount);
         $this->assertEquals('2025-10-01', $invoice->date);
@@ -321,7 +321,6 @@ class TaxPeriodReportTest extends TestCase
         $this->assertEquals(30, $transaction_event->metadata->tax_report->tax_summary->total_taxes);
         $this->assertEquals(0, $transaction_event->invoice_paid_to_date);
 
-
         $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 5)->startOfDay());
 
         $line_items = [];
@@ -343,7 +342,7 @@ class TaxPeriodReportTest extends TestCase
 
         $transaction_event = $invoice->transaction_events()->orderBy('timestamp', 'desc')->first();
 
-        nlog($transaction_event->metadata);
+        // nlog($transaction_event->metadata);
         $this->assertEquals('2025-11-30', $transaction_event->period->format('Y-m-d'));
         $this->assertEquals(440, $transaction_event->invoice_amount);
         $this->assertEquals("delta", $transaction_event->metadata->tax_report->tax_summary->status);
@@ -351,6 +350,18 @@ class TaxPeriodReportTest extends TestCase
         $this->assertEquals(100, $transaction_event->metadata->tax_report->tax_summary->adjustment);
         $this->assertEquals(10, $transaction_event->metadata->tax_report->tax_summary->tax_adjustment);
 
+
+        $payload = [
+            'start_date' => '2025-11-01',
+            'end_date' => '2025-11-30',
+            'date_range' => 'custom',
+            'is_income_billed' => true,
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+        
+        nlog($data);
 
     }
 
