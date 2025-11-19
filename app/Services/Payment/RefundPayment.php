@@ -52,20 +52,20 @@ class RefundPayment
 
             $payment_email_all_contacts = $this->payment->client->getSetting('payment_email_all_contacts');
 
-                $this->payment
-                    ->client
-                    ->contacts()
-                    ->where('send_email', true)
-                    ->whereNotNull('email')
-                    ->when(!$payment_email_all_contacts, function ($query) {
-                        return $query->orderBy('id','asc')->take(1);
-                    })
-                    ->cursor()
-                    ->each(function ($contact){
+            $this->payment
+                ->client
+                ->contacts()
+                ->where('send_email', true)
+                ->whereNotNull('email')
+                ->when(!$payment_email_all_contacts, function ($query) {
+                    return $query->orderBy('id', 'asc')->take(1);
+                })
+                ->cursor()
+                ->each(function ($contact) {
 
-                        EmailRefundPayment::dispatch($this->payment, $this->payment->company, $contact);
+                    EmailRefundPayment::dispatch($this->payment, $this->payment->company, $contact);
 
-                    });
+                });
         }
 
         $is_gateway_refund = ($this->refund_data['gateway_refund'] !== false || $this->refund_failed || (isset($this->refund_data['via_webhook']) && $this->refund_data['via_webhook'] !== false)) ? ctrans('texts.yes') : ctrans('texts.no');
@@ -292,7 +292,7 @@ class RefundPayment
             foreach ($this->refund_data['invoices'] as $refunded_invoice) {
                 $invoice = Invoice::withTrashed()->find($refunded_invoice['invoice_id']);
 
-                if($invoice->status_id == Invoice::STATUS_REVERSED){
+                if ($invoice->status_id == Invoice::STATUS_REVERSED) {
                     $_credit = Credit::withTrashed()->where('invoice_id', $invoice->id)->first();
                     $_credit->client->service()->adjustCreditBalance($_credit->balance * -1)->save();
                     $_credit->paid_to_date += $_credit->balance;

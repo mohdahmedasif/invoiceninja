@@ -155,7 +155,7 @@ class TemplateService
             }
 
             $x = collect($items)->groupBy($property)->toArray();
-            
+
             return $x;
         }));
         $this->twig->addFilter($filter);
@@ -291,7 +291,7 @@ class TemplateService
      */
     public function getPdf(): string
     {
-        
+
         if (config('ninja.invoiceninja_hosted_pdf_generation') || config('ninja.pdf_generator') == 'hosted_ninja') {
             $pdf = (new NinjaPdf())->build($this->compiled_html);
         } else {
@@ -469,7 +469,7 @@ class TemplateService
     /**
      * Convert HTML string to HTML entities (replacement for deprecated mb_convert_encoding)
      * Maintains exact same functionality as mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8')
-     * 
+     *
      * @param string $html
      * @return string
      */

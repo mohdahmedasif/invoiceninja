@@ -627,7 +627,7 @@ class ProfitLoss
                 break;
 
             case 'last_year':
-                            
+
                 $first_month_of_year = $this->company->first_month_of_year ?? 1;
                 $fin_year_start = now()->createFromDate(now()->year, $first_month_of_year, 1);
                 $fin_year_start->subYearNoOverflow();
@@ -642,7 +642,7 @@ class ProfitLoss
                 break;
 
             case 'this_year':
-                            
+
                 $first_month_of_year = $this->company->first_month_of_year ?? 1;
                 $fin_year_start = now()->createFromDate(now()->year, $first_month_of_year, 1);
 

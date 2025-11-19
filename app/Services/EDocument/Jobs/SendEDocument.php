@@ -62,7 +62,7 @@ class SendEDocument implements ShouldQueue
 
         $model = $this->entity::withTrashed()->find($this->id);
 
-        if(isset($model->backup->guid) && is_string($model->backup->guid) && strlen($model->backup->guid) > 3){
+        if (isset($model->backup->guid) && is_string($model->backup->guid) && strlen($model->backup->guid) > 3) {
             nlog("already sent!");
             return;
         }
@@ -73,7 +73,7 @@ class SendEDocument implements ShouldQueue
         }
 
         $model = $model->service()->markSent()->save();
-        
+
         /** Concrete implementation current linked to Storecove only */
         $p = new Peppol($model);
         $p->run();

@@ -74,7 +74,7 @@ class UpdateInvoicePayment
             }
 
             // Catches an edge case where a payment on a deleted invoice reduces the client balance TWICE.
-            if(!$invoice->is_deleted) {
+            if (!$invoice->is_deleted) {
                 $client->service()->updateBalance($paid_amount * -1); //only ever use the amount applied to the invoice
             }
 
@@ -101,18 +101,17 @@ class UpdateInvoicePayment
                 //keep proforma's hidden
                 if (property_exists($this->payment_hash->data, 'pre_payment') && $this->payment_hash->data->pre_payment == "1") {
 
-                    if($invoice->balance != 0){
-                        $invoice->client->service()->updateBalance($invoice->balance*-1);
+                    if ($invoice->balance != 0) {
+                        $invoice->client->service()->updateBalance($invoice->balance * -1);
                         $invoice->balance = 0;
                         $invoice->status_id = \App\Models\Invoice::STATUS_PAID;
                         $invoice->saveQuietly();
-                    
+
                         $invoice
                             ->ledger()
                             ->updateInvoiceBalance(($invoice->balance + $paid_amount) * -1, "Prepayment Balance Adjustment");
 
-                    }
-                    else {
+                    } else {
 
                         $invoice
                         ->ledger()
@@ -167,7 +166,7 @@ class UpdateInvoicePayment
                         ->applyNumber()
                         ->save();
 
-                    
+
             }
 
             /* Updates the company ledger */

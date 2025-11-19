@@ -97,7 +97,7 @@ class ClientBalanceReport extends BaseExport
         $query->orderBy('balance', 'desc')
             ->cursor()
             ->each(function ($client) {
-                /** @var \App\Models\Client $client */  
+                /** @var \App\Models\Client $client */
                 $this->csv->insertOne($this->buildRow($client));
 
             });
