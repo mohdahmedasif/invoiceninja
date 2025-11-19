@@ -19,11 +19,13 @@ use App\Models\Account;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Utils\Traits\MakesHash;
+use App\Models\TransactionEvent;
 use App\DataMapper\CompanySettings;
 use App\Factory\InvoiceItemFactory;
 use App\Services\Report\TaxPeriodReport;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use App\Listeners\Invoice\InvoiceTransactionEventEntry;
+use App\Listeners\Payment\PaymentTransactionEventEntry;
 use App\Listeners\Invoice\InvoiceTransactionEventEntryCash;
 
 /**
@@ -34,6 +36,8 @@ class TaxPeriodReportTest extends TestCase
     use MakesHash;
 
     public $faker;
+
+    private $_token;
 
     protected function setUp(): void
     {
@@ -46,6 +50,7 @@ class TaxPeriodReportTest extends TestCase
         );
 
         $this->withoutExceptionHandling();
+
     }
 
     public $company;
@@ -112,12 +117,14 @@ class TaxPeriodReportTest extends TestCase
             'settings' => null,
         ]);
 
+        $this->_token =\Illuminate\Support\Str::random(64);
+
         $company_token = new \App\Models\CompanyToken();
         $company_token->user_id = $this->user->id;
         $company_token->company_id = $this->company->id;
         $company_token->account_id = $this->account->id;
         $company_token->name = 'test token';
-        $company_token->token = \Illuminate\Support\Str::random(64);
+        $company_token->token = $this->_token;
         $company_token->is_system = true;
 
         $company_token->save();
@@ -478,8 +485,326 @@ class TaxPeriodReportTest extends TestCase
         $this->assertEquals(-10, $item_report[4]); //adjusted tax amount
     }
 
-    public function invoiceReportingOverMultiplePeriodsWithCashAccountingCheckAdjustments()
+    public function testInvoiceReportingOverMultiplePeriodsWithCashAccountingCheckAdjustments()
     {
+
+        $this->buildData();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->type_id = 1;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+
+        $invoice->service()->markSent()->createInvitations()->markPaid()->save();
+
+        $invoice = $invoice->fresh();
+
+        // (new InvoiceTransactionEventEntry())->run($invoice);
+        // (new InvoiceTransactionEventEntryCash())->run($invoice, '2025-10-01', '2025-10-31');
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 2)->startOfDay());
+
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => true, //accrual
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+
+        $transaction_event = $invoice->transaction_events()
+        ->where('event_id', '!=', TransactionEvent::INVOICE_UPDATED)
+        ->first();
+    
+        $this->assertNotNull($transaction_event);
+        $this->assertEquals('2025-10-31', $transaction_event->period->format('Y-m-d'));
+        $this->assertEquals(330, $transaction_event->invoice_amount);
+        $this->assertEquals(30, $transaction_event->metadata->tax_report->tax_summary->total_taxes);
+        $this->assertEquals(330, $transaction_event->invoice_paid_to_date);
+
+
+    }
+
+    public function testInvoiceWithRefundAndCashReportsAreCorrect()
+    {
+
+        $this->buildData();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->type_id = 1;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+
+        $invoice->service()->markSent()->createInvitations()->markPaid()->save();
+
+        $invoice = $invoice->fresh();
+
+        $payment = $invoice->payments()->first();
+
+
+        /**
+         * refund one third of the total invoice amount
+         * 
+         * this should result in a tax adjustment of -10
+         * and a reportable taxable_amount adjustment of -100
+         * 
+         */
+        $refund_data = [
+            'id' => $payment->hashed_id,
+            'date' => '2025-10-15',
+            'invoices' => [
+                [
+                'invoice_id' => $invoice->hashed_id,
+                'amount' => 110,
+                ],
+            ]
+        ];
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 15)->startOfDay());
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->_token,
+        ])->postJson('/api/v1/payments/refund', $refund_data);
+
+        $response->assertStatus(200);
+
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 02)->startOfDay());
+
+        //cash should have NONE
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, //cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+        
+        $invoice = $invoice->fresh();
+        $payment = $invoice->payments()->first();
+
+        $te = $invoice->transaction_events()->where('event_id', '!=', TransactionEvent::INVOICE_UPDATED)->get();
+
+        // nlog($te->toArray());
+
+        $this->assertEquals(110, $invoice->balance);
+        $this->assertEquals(220, $invoice->paid_to_date);
+        $this->assertEquals(3, $invoice->status_id);
+        $this->assertEquals(110, $payment->refunded);
+        $this->assertEquals(330, $payment->applied);
+        $this->assertEquals(330, $payment->amount);
+
+        $this->assertEquals(110, $te->first()->payment_refunded);
+        $this->assertEquals(330, $te->first()->payment_applied);
+        $this->assertEquals(330, $te->first()->payment_amount);
+        $this->assertEquals(220, $te->first()->invoice_paid_to_date);
+        $this->assertEquals(110, $te->first()->invoice_balance);
+
+    }
+
+    public function testInvoiceWithRefundAndCashReportsAreCorrectAcrossReportingPeriods()
+    {
+
+        $this->buildData();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->type_id = 1;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+
+        $invoice->service()->markSent()->createInvitations()->markPaid()->save();
+
+        $invoice = $invoice->fresh();
+
+        $payment = $invoice->payments()->first();
+
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 02)->startOfDay());
+
+        //cash should have NONE
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, //cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+        
+
+        /**
+         * refund one third of the total invoice amount
+         * 
+         * this should result in a tax adjustment of -10
+         * and a reportable taxable_amount adjustment of -100
+         * 
+         */
+        $refund_data = [
+            'id' => $payment->hashed_id,
+            'date' => '2025-11-02',
+            'invoices' => [
+                [
+                'invoice_id' => $invoice->hashed_id,
+                'amount' => 110,
+                ],
+            ]
+        ];
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->_token,
+        ])->postJson('/api/v1/payments/refund', $refund_data);
+
+        $response->assertStatus(200);
+
+        $invoice = $invoice->fresh();
+        $payment = $invoice->payments()->first();
+
+        (new PaymentTransactionEventEntry($payment, [$invoice->id], $payment->company->db, 0, false))->handle();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 12, 02)->startOfDay());
+
+        $invoice = $invoice->fresh();
+
+        nlog($invoice->transaction_events()->where('event_id', 2)->first()->toArray());
+
+
+        //cash should have NONE
+        $payload = [
+            'start_date' => '2025-11-01',
+            'end_date' => '2025-11-30',
+            'date_range' => 'custom',
+            'is_income_billed' => false, //cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+        
+        nlog($data);
+
+        $this->assertCount(2, $data['invoices']);
+
+        // $invoice = $invoice->fresh();
+        // $payment = $invoice->payments()->first();
+
+        // $te = $invoice->transaction_events()->where('event_id', '!=', TransactionEvent::INVOICE_UPDATED)->get();
+
+        // // nlog($te->toArray());
+
+        // $this->assertEquals(110, $invoice->balance);
+        // $this->assertEquals(220, $invoice->paid_to_date);
+        // $this->assertEquals(3, $invoice->status_id);
+        // $this->assertEquals(110, $payment->refunded);
+        // $this->assertEquals(330, $payment->applied);
+        // $this->assertEquals(330, $payment->amount);
+
+        // $this->assertEquals(110, $te->first()->payment_refunded);
+        // $this->assertEquals(330, $te->first()->payment_applied);
+        // $this->assertEquals(330, $te->first()->payment_amount);
+        // $this->assertEquals(220, $te->first()->invoice_paid_to_date);
+        // $this->assertEquals(110, $te->first()->invoice_balance);
 
     }
 

@@ -53,6 +53,7 @@ class InvoiceTransactionEventEntryCash
             });
         });
 
+
         TransactionEvent::create([
             'invoice_id' => $invoice->id,
             'client_id' => $invoice->client_id,
@@ -64,6 +65,9 @@ class InvoiceTransactionEventEntryCash
             'invoice_partial' => $invoice->partial ?? 0,
             'invoice_paid_to_date' => $invoice->paid_to_date ?? 0,
             'invoice_status' => $invoice->is_deleted ? 7 : $invoice->status_id,
+            'payment_refunded' => $this->payments->sum('refunded'),
+            'payment_applied' => $this->payments->sum('amount'),
+            'payment_amount' => $this->payments->sum('amount'),
             'event_id' => TransactionEvent::PAYMENT_CASH,
             'timestamp' => now()->timestamp,
             'metadata' => $this->getMetadata($invoice),
@@ -101,8 +105,8 @@ class InvoiceTransactionEventEntryCash
             $tax_detail = [
                 'tax_name' => $tax['name'],
                 'tax_rate' => $tax['tax_rate'],
-                'taxable_amount' => $tax['base_amount'] ?? $calc->getNetSubtotal(),
-                'tax_amount' => $tax['total'],
+                'taxable_amount' => ($tax['base_amount'] ?? $calc->getNetSubtotal()) * $this->paid_ratio,
+                'tax_amount' => $tax['total'] * $this->paid_ratio,
                 'tax_amount_paid' => $this->calculateRatio($tax['total']),
                 'tax_amount_remaining' => $tax['total'] - $this->calculateRatio($tax['total']),
             ];

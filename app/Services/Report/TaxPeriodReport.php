@@ -90,7 +90,6 @@ class TaxPeriodReport extends BaseExport
      */
     public function boot(): self
     {
-
         $this->setAccountingType()
             ->setCurrencyFormat()
             ->calculateDateRange()
@@ -104,6 +103,8 @@ class TaxPeriodReport extends BaseExport
     {
         $this->cash_accounting = $this->input['is_income_billed'] ? false : true;
 
+        nlog("cash_accounting = ");
+        nlog($this->cash_accounting ? "true" : "false");
         return $this;
     }
     
@@ -163,17 +164,17 @@ class TaxPeriodReport extends BaseExport
             ->where('company_id', $this->company->id);
             // ->where('is_deleted', 0);
 
-        if($this->cash_accounting) //accrual
+        if($this->cash_accounting) //cash
         {
 
             $query->whereIn('status_id', [3,4])
                 ->whereHas('transaction_events', function ($query) {
-                    $query->where('event_id', TransactionEvent::PAYMENT_CASH)
+                    $query->where('event_id', '!=', TransactionEvent::INVOICE_UPDATED)
                         ->whereBetween('period', [$this->start_date, $this->end_date]);
                 });
            
         }
-        else //cash
+        else //accrual
         {
             
             $query->whereIn('status_id', [2,3,4,5])
@@ -353,7 +354,7 @@ class TaxPeriodReport extends BaseExport
             ctrans('texts.invoice_total'),
             ctrans('texts.paid'),
             ctrans('texts.total_taxes'),
-            ctrans('texts.tax_paid'),
+            ctrans('texts.taxable_amount'),
             ctrans('texts.notes')
         ];
 
@@ -420,6 +421,10 @@ class TaxPeriodReport extends BaseExport
             ->cursor()
             ->each(function($event) use ($invoice){
             
+                // nlog($event->metadata->tax_report->tax_summary->status);
+// nlog($event->event_id);
+//                 nlog($event->metadata->toArray());
+
                 /** @var TransactionEvent $event */   
                 switch($event->metadata->tax_report->tax_summary->status){
                     case 'delta':
@@ -473,7 +478,8 @@ class TaxPeriodReport extends BaseExport
             $invoice->number,
             $invoice->date,
             $invoice->amount,
-            $state->metadata->tax_report->payment_history?->sum('amount') ?? 0,
+            $invoice->paid_to_date,
+            // $state->metadata->tax_report->payment_history?->sum('amount') ?? 0,
             $state->metadata->tax_report->tax_summary->total_taxes,
             $state->metadata->tax_report->tax_summary->total_paid,
             'payable',
@@ -539,7 +545,7 @@ class TaxPeriodReport extends BaseExport
             $state->metadata->tax_report->tax_summary->adjustment,
             $state->metadata->tax_report->payment_history?->sum('amount') ?? 0,
             $state->metadata->tax_report->tax_summary->tax_adjustment,
-            $state->metadata->tax_report->tax_summary->total_paid,
+            $state->metadata->tax_report->tax_summary->taxable_amount,
             'payable',
             $this->is_usa ? $invoice->tax_data->geoState : '',
             $this->is_usa ? $invoice->tax_data->stateSalesTax : '',
@@ -601,7 +607,8 @@ class TaxPeriodReport extends BaseExport
             $invoice->amount,
             $state->invoice_paid_to_date,
             $state->metadata->tax_report->tax_summary->total_taxes,
-            $state->metadata->tax_report->tax_summary->adjustment,
+            $state->invoice_paid_to_date - $invoice->amount,
+            // $state->metadata->tax_report->tax_summary->adjustment,
             'adjustment',
             $this->is_usa ? $invoice->tax_data->geoState : '',
             $this->is_usa ? $invoice->tax_data->stateSalesTax : '',
@@ -649,7 +656,7 @@ class TaxPeriodReport extends BaseExport
             $state->invoice_paid_to_date,
             $state->metadata->tax_report->payment_history?->sum('amount') ?? 0,
             ($state->invoice_paid_to_date / $state->invoice_amount) * $state->metadata->tax_report->tax_summary->total_taxes,
-            $state->metadata->tax_report->tax_summary->total_paid,
+            $state->metadata->tax_report->tax_summary->taxable_amount,
             'payable',
             $this->is_usa ? $invoice->tax_data->geoState : '',
             $this->is_usa ? $invoice->tax_data->stateSalesTax : '',
@@ -696,7 +703,7 @@ class TaxPeriodReport extends BaseExport
             $invoice->amount * -1,
             $state->metadata->tax_report->payment_history?->sum('amount') * -1,
             $state->metadata->tax_report->tax_summary->total_taxes * -1,
-            $state->metadata->tax_report->tax_summary->total_paid * -1,
+            $state->metadata->tax_report->tax_summary->taxable_amount * -1,
             'deleted',
             $this->is_usa ? $invoice->tax_data->geoState : '',
             $this->is_usa ? $invoice->tax_data->stateSalesTax : '',
