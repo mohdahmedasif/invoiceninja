@@ -768,8 +768,7 @@ class TaxPeriodReportTest extends TestCase
 
         $invoice = $invoice->fresh();
 
-        nlog($invoice->transaction_events()->where('event_id', 2)->first()->toArray());
-
+        // nlog($invoice->transaction_events()->where('event_id', 2)->first()->toArray());
 
         //cash should have NONE
         $payload = [
@@ -786,25 +785,11 @@ class TaxPeriodReportTest extends TestCase
 
         $this->assertCount(2, $data['invoices']);
 
-        // $invoice = $invoice->fresh();
-        // $payment = $invoice->payments()->first();
+        $invoice_report = $data['invoices'][1];
 
-        // $te = $invoice->transaction_events()->where('event_id', '!=', TransactionEvent::INVOICE_UPDATED)->get();
-
-        // // nlog($te->toArray());
-
-        // $this->assertEquals(110, $invoice->balance);
-        // $this->assertEquals(220, $invoice->paid_to_date);
-        // $this->assertEquals(3, $invoice->status_id);
-        // $this->assertEquals(110, $payment->refunded);
-        // $this->assertEquals(330, $payment->applied);
-        // $this->assertEquals(330, $payment->amount);
-
-        // $this->assertEquals(110, $te->first()->payment_refunded);
-        // $this->assertEquals(330, $te->first()->payment_applied);
-        // $this->assertEquals(330, $te->first()->payment_amount);
-        // $this->assertEquals(220, $te->first()->invoice_paid_to_date);
-        // $this->assertEquals(110, $te->first()->invoice_balance);
+        $this->assertEquals(-110, $invoice_report[5]);
+        $this->assertEquals(-10, $invoice_report[4]);
+        $this->assertEquals('adjustment', $invoice_report[6]);
 
     }
 

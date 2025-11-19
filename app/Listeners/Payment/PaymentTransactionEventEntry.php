@@ -89,7 +89,7 @@ class PaymentTransactionEventEntry implements ShouldQueue
                 })
                 ->each(function($invoice){
 
-                    nlog(" I am inserting!!! ");
+                    // nlog(" I am inserting!!! ");
                 $this->setPaidRatio($invoice);
 
                 //delete any other payment mutations here if this is a delete event, the refunds are redundant in this time period
