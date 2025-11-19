@@ -43,6 +43,11 @@ class InvoiceTransactionEventEntry
         
         $this->setPaidRatio($invoice);
 
+        // if($invoice->public_notes == 'iamdeleted')
+        // nlog($invoice->toArray());
+        //Long running tasks may spill over into the next day therefore month!
+        $period = $force_period ?? now()->endOfMonth()->subHours(5)->format('Y-m-d');
+        
         $event = $invoice->transaction_events()
                         ->where('event_id', TransactionEvent::INVOICE_UPDATED)
                         ->orderBy('timestamp', 'desc')
@@ -50,33 +55,49 @@ class InvoiceTransactionEventEntry
 
         if($event){
 
+
             $this->entry_type = 'delta';
             
             if($invoice->is_deleted && $event->metadata->tax_report->tax_summary->status == 'deleted'){ 
                 // Invoice was previously deleted, and is still deleted... return early!!
+                 
                 return;
             }
             else if(in_array($invoice->status_id,[Invoice::STATUS_CANCELLED]) && $event->metadata->tax_report->tax_summary->status == 'cancelled'){
                 // Invoice was previously cancelled, and is still cancelled... return early!!
+                
                 return;
             }
             else if (!$invoice->is_deleted && $event->metadata->tax_report->tax_summary->status == 'deleted'){
                 //restored invoice must be reported!!!! _do not return early!!
+                
                 $this->entry_type = 'restored';
+            }
+            else if(in_array($invoice->status_id,[Invoice::STATUS_CANCELLED])){
+                // Need to ensure first time cancellations are reported.
+  
+                // return; // Only return if BOTH amount AND status unchanged - for handling cancellations.
+                
+                return;
+            }
+            else if($invoice->is_deleted){
+                
+                
             }
             /** If the invoice hasn't changed its state... return early!! */
             else if(BcMath::comp($invoice->amount, $event->invoice_amount) == 0){
+                
                 return;
             }
 
         }
         elseif($invoice->is_deleted){
+            // elseif($invoice->is_deleted && \Carbon\Carbon::parse($invoice->date)->lte(\Carbon\Carbon::parse($period))){
             //If the invoice was created and deleted in the same period, we don't need to report it!!!
-            return;
+            // return;
+           
         }
-        //Long running tasks may spill over into the next day therefore month!
-        $period = $force_period ?? now()->endOfMonth()->subHours(5)->format('Y-m-d');
-        
+
         $this->payments = $invoice->payments->flatMap(function ($payment) {
             return $payment->invoices()->get()->map(function ($invoice) use ($payment) {
                 return [
@@ -250,8 +271,8 @@ class InvoiceTransactionEventEntry
             $tax_detail = [
                 'tax_name' => $tax['name'],
                 'tax_rate' => $tax['tax_rate'],
-                'taxable_amount' => $tax['base_amount'] ?? $calc->getNetSubtotal(),
-                'tax_amount' => $tax['total'],
+                'taxable_amount' => ($tax['base_amount'] ?? $calc->getNetSubtotal()) * -1,
+                'tax_amount' => $tax['total'] * -1,
                 'tax_amount_paid' => $this->calculateRatio($tax['total']),
                 'tax_amount_remaining' => 0,
             ];

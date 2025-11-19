@@ -62,8 +62,9 @@ class TaxPeriodReport extends BaseExport
             'client_id',
             'is_income_billed',
         ]
+        @param bool $skip_initialization Skip prophylactic transaction event creation (primarily for testing)
     */
-    public function __construct(public Company $company, public array $input)
+    public function __construct(public Company $company, public array $input, private bool $skip_initialization = false)
     {
         $this->regional_calculator = RegionalTaxCalculatorFactory::create($company);
     }
@@ -96,9 +97,13 @@ class TaxPeriodReport extends BaseExport
     {
         $this->setAccountingType()
             ->setCurrencyFormat()
-            ->calculateDateRange()
-            ->initializeData()
-            ->buildData();
+            ->calculateDateRange();
+
+        if (!$this->skip_initialization) {
+            $this->initializeData();
+        }
+
+        $this->buildData();
 
         return $this;
     }
@@ -156,6 +161,26 @@ class TaxPeriodReport extends BaseExport
 
             }
         });
+
+        $ii = Invoice::withTrashed()
+                ->whereHas('transaction_events', function ($query) {
+                    $query->where('period', '<=', $this->end_date);
+                })
+                ->where(function ($q) {
+                    $q->whereIn('status_id', [Invoice::STATUS_CANCELLED])
+                    ->orWhere('is_deleted', true);
+                })
+                ->whereDoesntHave('transaction_events', function ($query) {
+                    $query->where('period', $this->end_date)
+                        ->whereIn('metadata->tax_report->tax_summary->status', ['cancelled', 'deleted']);
+                });
+
+                nlog("end date = {$this->end_date} =>" . $ii->count());
+                
+                $ii->cursor()
+                ->each(function ($invoice) {
+                    (new InvoiceTransactionEventEntry())->run($invoice, $this->end_date);
+                });
 
         return $this;
     }
