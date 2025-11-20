@@ -296,13 +296,13 @@ class Storecove
             identifier: $data['classification'] === 'individual' ? str_replace('/', '', $data['id_number']) : str_replace(" ", "", $data['vat_number']),
             scheme: $scheme,
         );
-    
+
         if (! is_array($add_identifier_response)) {
             return $add_identifier_response;
         }
 
         /** For Belgium, we register both the BE:VAT and BE:EN identifiers so that users can receive via HERMES */
-        if($data['country'] == "BE"){
+        if ($data['country'] == "BE") {
             $scheme = "BE:EN";
             $identifier = $data['classification'] === 'individual' ? str_replace('/', '', $data['id_number']) : str_replace([" ","BE"], "", $data['vat_number']);
             $add_identifier_response = $this->addIdentifier(
@@ -313,8 +313,8 @@ class Storecove
         }
 
         /** For Denmark, we register both identifiers */
-        if($data['country'] == "DK"){
-           $add_identifier_response = $this->addIdentifier($legal_entity_response['id'], str_replace(" ", "", $data['vat_number']), "DK:DIGST");
+        if ($data['country'] == "DK") {
+            $add_identifier_response = $this->addIdentifier($legal_entity_response['id'], str_replace(" ", "", $data['vat_number']), "DK:DIGST");
         }
 
         return [

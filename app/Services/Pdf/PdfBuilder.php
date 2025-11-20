@@ -195,7 +195,7 @@ class PdfBuilder
     /**
      * Convert HTML string to HTML entities (replacement for deprecated mb_convert_encoding)
      * Maintains exact same functionality as mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8')
-     * 
+     *
      * @param string $html
      * @return string
      */
@@ -220,11 +220,11 @@ class PdfBuilder
         // $contents = $this->document->getElementsByTagName('ninja');
 
 
-$contents = [];
-$nodeList = $this->document->getElementsByTagName('ninja');
-for ($i = 0; $i < $nodeList->length; $i++) {
-    $contents[] = $nodeList->item($i);
-}
+        $contents = [];
+        $nodeList = $this->document->getElementsByTagName('ninja');
+        for ($i = 0; $i < $nodeList->length; $i++) {
+            $contents[] = $nodeList->item($i);
+        }
 
 
         $template_service = new TemplateService();
@@ -245,10 +245,10 @@ for ($i = 0; $i < $nodeList->length; $i++) {
             // $template = str_ireplace(['<br>', '<br />'], "<br/>", $template);
             // $f->appendXML($template);
 
-$decoded_template = str_ireplace("<br>", "<br/>", html_entity_decode($template));
-$f->appendXML('<![CDATA[' . $decoded_template . ']]>');
+            $decoded_template = str_ireplace("<br>", "<br/>", html_entity_decode($template));
+            $f->appendXML('<![CDATA[' . $decoded_template . ']]>');
 
-            
+
             $replacements[] = $f;
 
         }

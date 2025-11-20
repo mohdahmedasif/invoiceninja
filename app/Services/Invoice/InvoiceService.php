@@ -249,7 +249,7 @@ class InvoiceService
 
         $this->invoice = (new MarkInvoiceDeleted($this->invoice))->run();
 
-        if($this->invoice->company->verifactuEnabled() && $this->invoice->backup->guid != '') {
+        if ($this->invoice->company->verifactuEnabled() && $this->invoice->backup->guid != '') {
             $this->cancelVerifactu();
         }
 
@@ -680,19 +680,19 @@ class InvoiceService
 
     /**
      * sendVerifactu
-     *  
+     *
      * @return self
      */
     public function sendVerifactu(): self
     {
         SendToAeat::dispatch($this->invoice->id, $this->invoice->company, 'create');
-        
+
         return $this;
     }
-    
+
     /**
      * cancelVerifactu
-     * 
+     *
      * @return self
      */
     public function cancelVerifactu(): self
@@ -701,10 +701,10 @@ class InvoiceService
 
         return $this;
     }
-    
+
     /**
      * Handles all requirements for verifactu saves
-     * 
+     *
      * @param  array $invoice_array
      * @param  bool $new_model
      * @return self
@@ -712,43 +712,41 @@ class InvoiceService
     public function modifyVerifactuWorkflow(array $invoice_array, bool $new_model): self
     {
 
-        /** 
-         * I need to perform some checks here to ensure that this invoice MUST be sent via AEAT, 
+        /**
+         * I need to perform some checks here to ensure that this invoice MUST be sent via AEAT,
          * in some cases we DO NOT send into AEAT, these are:
-         * 
+         *
          * - Sales to foreign consumers
-         * 
+         *
          */
         /** New Invoice - F1 Type */
-        if(empty($this->invoice->client->vat_number) || !in_array($this->invoice->client->country->iso_3166_2, (new \App\DataMapper\Tax\BaseRule())->eu_country_codes)) {
+        if (empty($this->invoice->client->vat_number) || !in_array($this->invoice->client->country->iso_3166_2, (new \App\DataMapper\Tax\BaseRule())->eu_country_codes)) {
 
             $this->invoice->backup->guid = 'exempt';
             $this->invoice->saveQuietly();
             return $this;
-        }
-        elseif($new_model && $this->invoice->amount >= 0) {
+        } elseif ($new_model && $this->invoice->amount >= 0) {
             $this->invoice->backup->document_type = 'F1';
             $this->invoice->backup->adjustable_amount = (new \App\Services\EDocument\Standards\Verifactu($this->invoice))->run()->registro_alta->calc->getTotal();
             $this->invoice->backup->parent_invoice_number = $this->invoice->number;
             $this->invoice->saveQuietly();
-        }
-        elseif(isset($invoice_array['modified_invoice_id'])) {
+        } elseif (isset($invoice_array['modified_invoice_id'])) {
             $document_type = 'R2'; // <- Default to R2 type
 
             /** Was it a partial or FULL rectification? */
             $modified_invoice = Invoice::withTrashed()->find($this->decodePrimaryKey($invoice_array['modified_invoice_id']));
 
-            if(!$modified_invoice) {
+            if (!$modified_invoice) {
                 throw new \Exception('Modified invoice not found');
             }
 
-            if(\App\Utils\BcMath::lessThan(abs($this->invoice->amount), $modified_invoice->amount)) {
+            if (\App\Utils\BcMath::lessThan(abs($this->invoice->amount), $modified_invoice->amount)) {
                 $document_type = 'R1'; // <- If The adjustment amount is less than the original invoice amount, we are doing a partial rectification
             }
 
             $modified_invoice->backup->child_invoice_ids->push($this->invoice->hashed_id);
 
-            if(isset($invoice_array['reason'])) {
+            if (isset($invoice_array['reason'])) {
                 $this->invoice->backup->notes = $invoice_array['reason'];
             }
 
@@ -759,7 +757,7 @@ class InvoiceService
             $this->invoice->backup->parent_invoice_id = $modified_invoice->hashed_id;
             $this->invoice->backup->document_type = $document_type;
             // $this->invoice->backup->adjustable_amount = $this->invoice->amount; // <- Amount available to be adjusted
-            
+
             $this->invoice->backup->adjustable_amount = (new \App\Services\EDocument\Standards\Verifactu($this->invoice))->run()->registro_alta->calc->getTotal();
             $this->invoice->backup->parent_invoice_number = $modified_invoice->number;
             $this->invoice->saveQuietly();
@@ -773,7 +771,7 @@ class InvoiceService
                                         ->sum('backup.adjustable_amount');
 
             //@todo verifactu - this won't be accurate as the invoice->amount will be the ex IPRF amount. modified->amount may not have the correct totals due to IRPF.
-            if(\App\Utils\BcMath::greaterThan(abs($child_invoice_amounts), $modified_invoice->amount)) {
+            if (\App\Utils\BcMath::greaterThan(abs($child_invoice_amounts), $modified_invoice->amount)) {
                 $modified_invoice->status_id = Invoice::STATUS_CANCELLED;
                 $modified_invoice->saveQuietly();
             }

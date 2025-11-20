@@ -86,14 +86,14 @@ class RefundReport extends BaseExport
 
         foreach ($refundActivities as $activity) {
             /** @var Activity $activity */
-            
+
             // Extract refund amount from notes using regex
             preg_match('/Refunded : (\d+) -/', $activity->notes, $matches);
             $refundAmount = $matches[1] ?? 0;
 
             // Get payment details
             $payment = $activity->payment;
-            
+
             // Get gateway refund status from refund_meta
             $gatewayRefund = false;
             if ($payment && $payment->refund_meta) {

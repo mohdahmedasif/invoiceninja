@@ -76,7 +76,7 @@ class LocationData extends AbstractService
             'shipping_exists' => strlen($this->getShippingAddress1()) > 0,
         ];
 
-        if(!$setCountries){
+        if (!$setCountries) {
             unset($location['country']);
             unset($location['shipping_country']);
         }

@@ -1,9 +1,11 @@
 <?php
 
 namespace App\Services\EDocument\Gateway\Storecove\Models;
+
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\Attribute\Context;
+
 class Delivery
 {
     public ?DeliveryLocation $delivery_location;

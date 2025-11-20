@@ -59,11 +59,10 @@ class TriggeredActions extends AbstractService
             $this->invoice->service()->markSent()->save();
 
             /** Check for VERIFACTU Sent Status */
-            if($this->invoice->company->verifactuEnabled() && !$this->invoice->hasSentAeat()) {
+            if ($this->invoice->company->verifactuEnabled() && !$this->invoice->hasSentAeat()) {
                 $this->invoice->invitations()->update(['email_error' => 'primed']); // Flag the invitations as primed for AEAT submission
                 $this->invoice->service()->sendVerifactu();
-            }
-            else {
+            } else {
                 $this->sendEmail();
             }
 
@@ -91,11 +90,10 @@ class TriggeredActions extends AbstractService
             $company->save();
         }
 
-        if($this->request->has('retry_e_send') && $this->request->input('retry_e_send') == 'true' && strlen($this->invoice->backup->guid ?? '') == 0) {
-            if($this->invoice->client->peppolSendingEnabled()) {
+        if ($this->request->has('retry_e_send') && $this->request->input('retry_e_send') == 'true' && strlen($this->invoice->backup->guid ?? '') == 0) {
+            if ($this->invoice->client->peppolSendingEnabled()) {
                 \App\Services\EDocument\Jobs\SendEDocument::dispatch(get_class($this->invoice), $this->invoice->id, $this->invoice->company->db);
-            }
-            elseif($this->invoice->company->verifactuEnabled()) {
+            } elseif ($this->invoice->company->verifactuEnabled()) {
                 $this->invoice->service()->sendVerifactu();
             }
         }

@@ -102,7 +102,7 @@ class EmailMailable extends Mailable
         $attachments  = [];
 
         $attachments = collect($this->email_object->attachments)->map(function ($file) {
-            
+
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime  = finfo_buffer($finfo, base64_decode($file['file']));
             $mime = $mime ?: 'application/octet-stream';

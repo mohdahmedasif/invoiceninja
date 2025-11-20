@@ -96,15 +96,15 @@ class ARSummaryReport extends BaseExport
             ->where('company_id', $this->company->id)
             ->where('is_deleted', 0);
 
-            $query = $this->filterByUserPermissions($query);
+        $query = $this->filterByUserPermissions($query);
 
-            $query->orderBy('balance', 'desc')
-            ->cursor()
-            ->each(function ($client) {
-                /** @var \App\Models\Client $client */
-                $this->csv->insertOne($this->buildRow($client));
+        $query->orderBy('balance', 'desc')
+        ->cursor()
+        ->each(function ($client) {
+            /** @var \App\Models\Client $client */
+            $this->csv->insertOne($this->buildRow($client));
 
-            });
+        });
 
         return $this->csv->toString();
     }

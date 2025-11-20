@@ -71,14 +71,14 @@ class TemplateMock
         $this->engines['projects'] = json_decode($this->project_data, true);
         $this->engines['payments'] = json_decode($this->payment_data, true);
         $this->engines['purchase_orders'] = json_decode($this->purchase_order_data, true);
-        
+
         // Check if expense_data property was actually set (may fail if property definition is too long)
         if (!isset($this->expense_data) || empty($this->expense_data)) {
             nlog('expense_data property is empty or not set - property definition may be too long for PHP to parse');
             $this->engines['expenses'] = null;
         } else {
             $this->engines['expenses'] = json_decode($this->expense_data, true);
-            
+
             if (json_last_error() !== JSON_ERROR_NONE) {
                 nlog('expense_data json_decode error: ' . json_last_error_msg());
                 nlog('expense_data length: ' . strlen($this->expense_data));
