@@ -84,6 +84,7 @@ class InvoiceTransactionEventEntryCash
 
         $this->paid_ratio = $invoice->paid_to_date / $invoice->amount;
 
+        nlog("paid ratio => {$this->paid_ratio}");
         return $this;
     }
 
@@ -107,8 +108,6 @@ class InvoiceTransactionEventEntryCash
                 'tax_rate' => $tax['tax_rate'],
                 'taxable_amount' => ($tax['base_amount'] ?? $calc->getNetSubtotal()) * $this->paid_ratio,
                 'tax_amount' => $tax['total'] * $this->paid_ratio,
-                'tax_amount_paid' => $this->calculateRatio($tax['total']),
-                'tax_amount_remaining' => $tax['total'] - $this->calculateRatio($tax['total']),
             ];
             $details[] = $tax_detail;
         }
@@ -118,10 +117,9 @@ class InvoiceTransactionEventEntryCash
                 'tax_details' => $details,
                 'payment_history' => $this->payments->toArray(),
                 'tax_summary' => [
-                    'total_taxes' => $invoice->total_taxes,
-                    'total_paid' => $this->getTotalTaxPaid($invoice),
+                    'total_taxes' => $invoice->total_taxes * $this->paid_ratio,
                     'status' => 'updated',
-                    'taxable_amount' => $calc->getNetSubtotal(),
+                    'taxable_amount' => $calc->getNetSubtotal() * $this->paid_ratio,
                     'adjustment' => 0,
                     'tax_adjustment' => 0,
                 ],
@@ -129,18 +127,5 @@ class InvoiceTransactionEventEntryCash
         ]);
 
     }
-
-    private function getTotalTaxPaid($invoice)
-    {
-        if ($invoice->amount == 0) {
-            return 0;
-        }
-
-        $total_paid = $this->payments->sum('amount') - $this->payments->sum('refunded');
-
-        return round($invoice->total_taxes * ($total_paid / $invoice->amount), 2);
-
-    }
-
 
 }

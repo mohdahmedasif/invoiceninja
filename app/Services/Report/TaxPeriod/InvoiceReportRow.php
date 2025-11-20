@@ -168,6 +168,7 @@ class InvoiceReportRow
             TaxReportStatus::CANCELLED => $this->buildCancelledRow(),
             TaxReportStatus::DELETED => $this->buildDeletedRow(),
             TaxReportStatus::RESTORED => $this->buildUpdatedRow(), // Treat restored as updated
+            TaxReportStatus::REVERSED => $this->buildDeltaRow(),
         };
     }
 

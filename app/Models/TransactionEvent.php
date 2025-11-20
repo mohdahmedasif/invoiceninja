@@ -67,4 +67,5 @@ class TransactionEvent extends StaticModel
     public const PAYMENT_DELETED = 3;
 
     public const PAYMENT_CASH = 4;
+
 }

@@ -43,8 +43,6 @@ class InvoiceTransactionEventEntry
         
         $this->setPaidRatio($invoice);
 
-        // if($invoice->public_notes == 'iamdeleted')
-        // nlog($invoice->toArray());
         //Long running tasks may spill over into the next day therefore month!
         $period = $force_period ?? now()->endOfMonth()->subHours(5)->format('Y-m-d');
         
@@ -66,11 +64,15 @@ class InvoiceTransactionEventEntry
                 // Invoice was previously cancelled, and is still cancelled... return early!!
                 return;
             }
+            else if(in_array($invoice->status_id,[Invoice::STATUS_REVERSED]) && $event->metadata->tax_report->tax_summary->status == 'reversed'){
+                // Invoice was previously cancelled, and is still cancelled... return early!!
+                return;
+            }
             else if (!$invoice->is_deleted && $event->metadata->tax_report->tax_summary->status == 'deleted'){
                 //restored invoice must be reported!!!! _do not return early!!
                 $this->entry_type = 'restored';
             }
-            else if(in_array($invoice->status_id,[Invoice::STATUS_CANCELLED])){
+            else if(in_array($invoice->status_id,[Invoice::STATUS_CANCELLED, Invoice::STATUS_REVERSED])){
                 // Need to ensure first time cancellations are reported.  
                 // return; // Only return if BOTH amount AND status unchanged - for handling cancellations.
                 
@@ -197,6 +199,51 @@ class InvoiceTransactionEventEntry
 
     }
     
+    private function getReversedMetaData($invoice)
+    {
+        $calc = $invoice->calc();
+
+        $details = [];
+
+        $taxes = array_merge($calc->getTaxMap()->merge($calc->getTotalTaxMap())->toArray());
+
+        //If there is a previous transaction event, we need to consider the taxable amount.
+        // $previous_transaction_event = TransactionEvent::where('event_id', TransactionEvent::INVOICE_UPDATED)
+        //                                     ->where('invoice_id', $invoice->id)
+        //                                     ->orderBy('timestamp', 'desc')
+        //                                     ->first();
+
+        if($this->paid_ratio == 0){
+            // setup a 0/0 recorded
+        }
+
+        foreach ($taxes as $tax) {
+            $tax_detail = [
+                'tax_name' => $tax['name'],
+                'tax_rate' => $tax['tax_rate'],
+                'taxable_amount' => ($tax['base_amount'] ?? $calc->getNetSubtotal()) * $this->paid_ratio * -1,
+                'tax_amount' => ($tax['total'] * $this->paid_ratio * -1),
+            ];
+            $details[] = $tax_detail;
+        }
+
+        //@todo what happens if this is triggered in the "NEXT FINANCIAL PERIOD?
+        return new TransactionEventMetadata([
+            'tax_report' => [
+                'tax_details' => $details,
+                'payment_history' => $this->payments->toArray() ?? [], //@phpstan-ignore-line
+                'tax_summary' => [
+                    'taxable_amount' => $calc->getNetSubtotal() * $this->paid_ratio * -1,
+                    'total_taxes' => $calc->getTotalTaxes() * $this->paid_ratio * -1,
+                    'status' => 'reversed',
+                    // 'adjustment' => round($calc->getNetSubtotal() - $previous_transaction_event->metadata->tax_report->tax_summary->taxable_amount, 2),
+                    // 'tax_adjustment' => round($calc->getTotalTaxes() - $previous_transaction_event->metadata->tax_report->tax_summary->total_taxes,2)
+                ],
+            ],
+        ]);
+
+    }
+
     /**
      * Existing tax details are not deleted, but pending taxes are set to 0
      *
@@ -212,20 +259,13 @@ class InvoiceTransactionEventEntry
         $taxes = array_merge($calc->getTaxMap()->merge($calc->getTotalTaxMap())->toArray());
 
         //If there is a previous transaction event, we need to consider the taxable amount.
-        $previous_transaction_event = TransactionEvent::where('event_id', TransactionEvent::INVOICE_UPDATED)
-                                            ->where('invoice_id', $invoice->id)
-                                            ->orderBy('timestamp', 'desc')
-                                            ->first();
+        // $previous_transaction_event = TransactionEvent::where('event_id', TransactionEvent::INVOICE_UPDATED)
+        //                                     ->where('invoice_id', $invoice->id)
+        //                                     ->orderBy('timestamp', 'desc')
+        //                                     ->first();
 
         if($this->paid_ratio == 0){
             // setup a 0/0 recorded
-        }
-        
-        //If there are no previous events, we setup a 0/0 record.
-
-        // If there is a previous event, it must have a payment history?
-        if($previous_transaction_event){
-            $previous_tax_details = $previous_transaction_event->metadata->tax_report->tax_details;
         }
 
         foreach ($taxes as $tax) {
@@ -300,6 +340,8 @@ class InvoiceTransactionEventEntry
             return $this->getCancelledMetaData($invoice);
         } elseif ($invoice->is_deleted) {
             return $this->getDeletedMetaData($invoice);
+        } elseif ($invoice->status_id == Invoice::STATUS_REVERSED){
+            return $this->getReversedMetaData($invoice);
         } elseif ($this->entry_type == 'delta') {
             return $this->calculateDeltaMetaData($invoice);
         }

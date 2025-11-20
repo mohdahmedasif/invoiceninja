@@ -19,7 +19,7 @@ class TaxSummary
 {
     public float $taxable_amount;
     public float $total_taxes; // Tax collected and confirmed (ie. Invoice Paid)
-    public string $status; // updated, deleted, cancelled, adjustment
+    public string $status; // updated, deleted, cancelled, adjustment, reversed
     public float $adjustment;
     public float $tax_adjustment;
 

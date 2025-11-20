@@ -23,6 +23,7 @@ enum TaxReportStatus: string
     case CANCELLED = 'cancelled';
     case DELETED = 'deleted';
     case RESTORED = 'restored';
+    case REVERSED = 'reversed';
 
     /**
      * Get human-readable label for the status
@@ -36,6 +37,7 @@ enum TaxReportStatus: string
             self::CANCELLED => 'cancelled',
             self::DELETED => 'deleted',
             self::RESTORED => 'restored',
+            self::REVERSED => 'reversed',
         };
     }
 

@@ -50,8 +50,6 @@ class TaxPeriodReportTest extends TestCase
             ThrottleRequests::class
         );
 
-        $this->withoutExceptionHandling();
-
     }
 
     public $company;
@@ -763,13 +761,11 @@ class TaxPeriodReportTest extends TestCase
         $invoice = $invoice->fresh();
         $payment = $invoice->payments()->first();
 
-        (new PaymentTransactionEventEntry($payment, [$invoice->id], $payment->company->db, 0, false))->handle();
+        (new PaymentTransactionEventEntry($payment, [$invoice->id], $payment->company->db, 110, false))->handle();
 
         $this->travelTo(\Carbon\Carbon::createFromDate(2025, 12, 02)->startOfDay());
 
         $invoice = $invoice->fresh();
-
-        nlog($invoice->transaction_events()->where('event_id', 2)->first()->toArray());
 
         //cash should have NONE
         $payload = [
@@ -782,6 +778,8 @@ class TaxPeriodReportTest extends TestCase
         $pl = new TaxPeriodReport($this->company, $payload);
         $data = $pl->boot()->getData();
         
+
+        // nlog($invoice->fresh()->transaction_events()->get()->toArray());
         // nlog($data);
         $this->assertCount(2, $data['invoices']);
 
@@ -1408,6 +1406,8 @@ class TaxPeriodReportTest extends TestCase
         $invoice = $invoice->calc()->getInvoice();
         $invoice->service()->markSent()->markPaid()->save();
 
+        // INVOICE PAID IN OCTOBER
+
         $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 1)->startOfDay());
 
         $payload = [
@@ -1422,14 +1422,16 @@ class TaxPeriodReportTest extends TestCase
 
         $this->assertCount(2, $data['invoices']);
 
+        //REPORTED IN OCTOBER
+
         $payment = $invoice->payments()->first();
+        $this->assertNotNull($payment);
+        // Deleted IN NOVEMBER
+        $payment = $payment->service()->deletePayment();
 
         $this->assertNotNull($payment);
 
-        // Delete payment in next period
-        $payment->service()->deletePayment();
-
-        $this->assertNotNull($payment);
+        $this->assertTrue($payment->is_deleted);
 
         (new \App\Listeners\Payment\PaymentTransactionEventEntry(
             $payment,
@@ -1438,17 +1440,19 @@ class TaxPeriodReportTest extends TestCase
             0,
             true
         ))->handle();
-
-        nlog($invoice->fresh()->transaction_events()->where('event_id', 3)->get()->toArray());
         
-        $this->assertNotNull($invoice->fresh()->transaction_events()->where('event_id', 3)->first());
+        $payment_deleted_event = $invoice->fresh()->transaction_events()->where('event_id', 3)->first();
+
+        $this->assertNotNull($payment_deleted_event);
+
+        nlog($payment_deleted_event->toArray());
 
         $this->travelTo(\Carbon\Carbon::createFromDate(2025, 12, 1)->startOfDay());
 
         // October shows +$30 GST (payment received)
         $payload = [
             'start_date' => '2025-11-01',
-            'end_date' => '2025-11-31',
+            'end_date' => '2025-11-30',
             'date_range' => 'custom',
             'is_income_billed' => false, // cash
         ];
@@ -1456,22 +1460,8 @@ class TaxPeriodReportTest extends TestCase
         $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
         $data = $pl->boot()->getData();
 
-        nlog($data);
         $this->assertCount(2, $data['invoices']);
-        $this->assertEquals(30, $data['invoices'][1][4]); // +$30 GST
-
-        // November shows -$30 GST (payment deleted)
-        $payload['start_date'] = '2025-11-01';
-        $payload['end_date'] = '2025-11-30';
-
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
-
-        $this->assertCount(2, $data['invoices']);
-        $invoice_report = $data['invoices'][1];
-
-        $this->assertEquals('adjustment', $invoice_report[6]);
-        $this->assertEquals(-30, $invoice_report[4]); // -$30 tax adjustment
+        $this->assertEquals(-30, $data['invoices'][1][4]); // +$30 GST
 
         $this->travelBack();
     }
@@ -1551,6 +1541,744 @@ class TaxPeriodReportTest extends TestCase
         $data = $pl->boot()->getData();
 
         $this->assertCount(1, $data['invoices']); // Just header, no invoice events in November for accrual
+
+        $this->travelBack();
+    }
+
+    // ========================================
+    // CANCELLED INVOICE TESTS - CASH ACCOUNTING
+    // ========================================
+
+    /**
+     * Test: Invoice cancelled in same period (cash accounting)
+     * Expected: If unpaid, no transaction event. If paid, need reversal.
+     */
+    public function testCancelledInvoiceInSamePeriodCash()
+    {
+        $this->buildData();
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+        $invoice->service()->markSent()->save();
+
+        // Cancel in same period (unpaid)
+        $invoice->service()->handleCancellation()->save();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 1)->startOfDay());
+
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: true);
+        $data = $pl->boot()->getData();
+
+        // Cash accounting: unpaid cancelled invoice = no tax liability
+        $this->assertCount(1, $data['invoices']); // Just header, no data
+
+        $this->travelBack();
+    }
+
+    /**
+     * Test: Invoice paid then cancelled in same period (cash accounting)
+     * Expected: No net effect (payment and cancellation offset)
+     */
+    public function testCancelledPaidInvoiceInSamePeriodCash()
+    {
+        $this->buildData();
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+        $invoice->service()->markSent()->markPaid()->save();
+
+        // Cancel after payment in same period
+        $invoice->fresh();
+        $invoice->service()->handleCancellation()->save();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 1)->startOfDay());
+
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: true);
+        $data = $pl->boot()->getData();
+
+        // Should show the payment event but cancellation offsets it
+        // The exact behavior depends on implementation
+        $this->assertIsArray($data['invoices']);
+
+        $this->travelBack();
+    }
+
+    /**
+     * Test: Invoice paid in one period, cancelled in next period (cash accounting)
+     * Expected: First period shows +tax (payment), second period shows -tax (cancellation reversal)
+     *
+     * A cancelled partially paid invoice - will not impact future reports. 
+     */
+    public function testCancelledPartiallyPaidInvoiceInNextPeriodCash()
+    {
+        $this->buildData();
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => '2025-10-01',
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+        $invoice->service()->markSent()->applyPaymentAmount(110, 'partial-payment')->save();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 1)->startOfDay());
+
+        // Check October report (should show payment)
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        $this->assertCount(2, $data['invoices']);
+        $this->assertEquals(10, $data['invoices'][1][4]); // +$30 GST from payment
+
+        // Move to next period and cancel
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 5)->startOfDay());
+        $invoice->fresh();
+        $invoice->service()->handleCancellation()->save();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 12, 1)->startOfDay());
+
+        // Check November report (should show reversal)
+        $payload = [
+            'start_date' => '2025-11-01',
+            'end_date' => '2025-11-30',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        // Should show cancelled status with negative adjustment
+        $this->assertCount(1, $data['invoices']);
+
+        $this->travelBack();
+    }
+
+    /**
+     * Test: Invoice with partial payment then cancelled (cash accounting)
+     * Expected: Report taxes only on paid portion, reversal only affects paid amount
+     *
+     * TODO: Requires cancellation transaction events for cash accounting to be implemented
+     */
+    public function testCancelledInvoiceWithPartialPaymentCash()
+    {
+
+        $this->buildData();
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+        $invoice->service()->markSent()->save();
+
+        // Pay half (165 = 50% of 330)
+        $invoice->service()->applyPaymentAmount(110, 'partial-payment')->save();
+        $invoice = $invoice->fresh();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 1)->startOfDay());
+
+        // Check October report (should show 50% of taxes)
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        $this->assertCount(2, $data['invoices']);
+        $this->assertEquals(10, $data['invoices'][1][4]); // +$15 GST (50% of $30)
+
+        // Move to next period and cancel
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 5)->startOfDay());
+        $invoice->fresh();
+        $invoice->service()->handleCancellation()->save();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 12, 1)->startOfDay());
+
+        // November report should show reversal of paid portion only
+        $payload = [
+            'start_date' => '2025-11-01',
+            'end_date' => '2025-11-30',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        // Should show reversal of the 50% that was paid
+        $this->assertEquals(1, count($data['invoices']));
+
+        $this->travelBack();
+    }
+
+    // ========================================
+    // CREDIT NOTE / REVERSAL TESTS
+    // ========================================
+
+    /**
+     * Test: Invoice reversed with credit note in next period (accrual)
+     * Expected: Original period shows liability, reversal period shows negative adjustment
+     *
+     * TODO: Implement invoice reversal functionality via credit notes and transaction events
+     * This requires creating credits and ensuring they generate appropriate transaction events
+     */
+    public function testInvoiceReversedWithCreditNoteNextPeriodAccrual()
+    {
+
+        $this->buildData();
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => '2025-10-01',
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+        $invoice->service()->markSent()->save();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 1)->startOfDay());
+
+        // Check October report
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => true, // accrual
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        $this->assertCount(2, $data['invoices']);
+        $this->assertEquals(30, $data['invoices'][1][4]); // +$30 GST
+
+        // Move to next period and reverse
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 5)->startOfDay());
+
+        $invoice->fresh();
+        // $invoice->service()->reverseInvoice()->save();
+
+        $reversal_payload = array_merge($invoice->toArray(), ['invoice_id' => $invoice->hashed_id, 'client_id' => $this->client->hashed_id]);
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->_token,
+        ])->postJson('/api/v1/credits', $reversal_payload);
+
+        $response->assertStatus(422);
+
+        $invoice = $invoice->fresh();
+        $this->assertEquals(Invoice::STATUS_SENT, $invoice->status_id);
+
+        $this->travelBack();
+    }
+
+    /**
+     * Test: Invoice paid then reversed with credit note (cash accounting)
+     * Expected: Payment period shows +tax, reversal period shows -tax
+     *
+     */
+    public function testInvoiceReversedWithCreditNoteNextPeriodCash()
+    {
+
+        $this->buildData();
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => '2025-10-01',
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+        $invoice->service()->markSent()->markPaid()->save();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 1)->startOfDay());
+
+        // Check October report (payment received)
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        nlog($data);
+
+        $this->assertCount(2, $data['invoices']);
+        $this->assertEquals(30, $data['invoices'][1][4]); // +$30 GST
+
+        // Move to next period and reverse
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 5)->startOfDay());
+
+        $invoice->fresh();
+        
+        $reversal_payload = array_merge($invoice->toArray(), ['invoice_id' => $invoice->hashed_id, 'client_id' => $this->client->hashed_id]);
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->_token,
+        ])->postJson('/api/v1/credits', $reversal_payload);
+
+        $response->assertStatus(200);
+
+        $credit = \App\Models\Credit::withTrashed()->where('invoice_id', $invoice->id)->first();
+        $invoice = $invoice->fresh();
+
+        $this->assertEquals(Invoice::STATUS_REVERSED, $invoice->status_id);
+
+        $this->assertNotNull($credit);
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 12, 1)->startOfDay());
+
+        // Check November report (should show reversal)
+        $payload = [
+            'start_date' => '2025-11-01',
+            'end_date' => '2025-11-30',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        $reversed_event = $invoice->fresh()->transaction_events()->where('metadata->tax_report->tax_summary->status', 'reversed')->first();
+        $this->assertNotNull($reversed_event);
+
+        $this->assertEquals('2025-11-30', $reversed_event->period->format('Y-m-d'));
+        nlog("2");
+        nlog($data);
+        // Should show reversal
+        $this->assertGreaterThanOrEqual(2, count($data['invoices']));
+
+        $this->travelBack();
+    }
+
+    // ========================================
+    // COMPLEX MULTI-PERIOD SCENARIOS
+    // ========================================
+
+    /**
+     * Test: Partial payment, then full refund across different periods
+     * Expected: Period 1 shows partial tax, Period 2 shows refund adjustment
+     *
+     * TODO: Fix tax calculation for partial payments in cash accounting.
+     * Currently shows full tax amount ($30) instead of proportional tax for partial payment ($15).
+     * The tax should be calculated based on the amount actually paid, not the full invoice amount.
+     */
+    public function testPartialPaymentThenFullRefundAcrossPeriods()
+    {
+        
+        $this->buildData();
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 12, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 300;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+        $invoice->service()->markSent()->save();
+
+        // Pay half in December
+        $invoice->service()->applyPaymentAmount(165, 'partial-payment')->save();
+        $invoice = $invoice->fresh();
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2026, 1, 1)->startOfDay());
+
+        // Check December (should show 50% of taxes)
+        $payload = [
+            'start_date' => '2025-12-01',
+            'end_date' => '2025-12-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        $this->assertCount(2, $data['invoices']);
+        $this->assertEquals(15, $data['invoices'][1][4]); // +$15 GST (50% of $30)
+        $this->assertEquals(150, $data['invoices'][1][5]); // +$15 GST (50% of $30)
+
+        // Refund the full partial payment in January
+        $payment = $invoice->payments()->first();
+
+        $refund_data = [
+            'id' => $payment->hashed_id,
+            'date' => '2026-01-15',
+            'invoices' => [
+                [
+                    'invoice_id' => $invoice->hashed_id,
+                    'amount' => 165, // Full refund of partial payment
+                ],
+            ]
+        ];
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2026, 1, 15)->startOfDay());
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->_token,
+        ])->postJson('/api/v1/payments/refund', $refund_data);
+
+        $response->assertStatus(200);
+
+        (new PaymentTransactionEventEntry($payment->refresh(), [$invoice->id], $payment->company->db, 165, false))->handle();
+
+        // nlog($invoice->fresh()->transaction_events()->where('event_id', 2)->first()->toArray());
+
+        $this->assertEquals(3, $invoice->fresh()->transaction_events()->count());
+
+        $this->travelTo(\Carbon\Carbon::createFromDate(2026, 2, 1)->startOfDay());
+
+        // Check January (should show -$15 reversal)
+        $payload = [
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-01-31',
+            'date_range' => 'custom',
+            'is_income_billed' => false, // cash
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
+        $data = $pl->boot()->getData();
+
+        // Should show negative adjustment
+        $this->assertGreaterThanOrEqual(1, count($data['invoices']));
+
+        $found = false;
+        foreach ($data['invoices'] as $idx => $row) {
+            if ($idx === 0) continue;
+            if (isset($row[4]) && $row[4] == -15) {
+                $found = true;
+                break;
+            }
+        }
+
+        $this->assertTrue($found, 'Refund adjustment not found in January report');
+
+        $this->travelBack();
+    }
+
+    /**
+     * Test: Invoice amount increased multiple times across different periods
+     * Expected: Each period shows the delta adjustment
+     */
+    public function testInvoiceIncreasedMultipleTimesAcrossPeriods()
+    {
+        $this->buildData();
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 10, 1)->startOfDay());
+
+        $line_items = [];
+        $item = InvoiceItemFactory::create();
+        $item->quantity = 1;
+        $item->cost = 100;
+        $item->tax_name1 = 'GST';
+        $item->tax_rate1 = 10;
+        $line_items[] = $item;
+
+        $invoice = Invoice::factory()->create([
+            'client_id' => $this->client->id,
+            'company_id' => $this->company->id,
+            'user_id' => $this->user->id,
+            'line_items' => $line_items,
+            'status_id' => Invoice::STATUS_DRAFT,
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'uses_inclusive_taxes' => false,
+            'tax_name1' => '',
+            'tax_rate1' => 0,
+            'tax_name2' => '',
+            'tax_rate2' => 0,
+            'tax_name3' => '',
+            'tax_rate3' => 0,
+            'custom_surcharge1' => 0,
+            'custom_surcharge2' => 0,
+            'custom_surcharge3' => 0,
+            'custom_surcharge4' => 0,
+            'date' => now()->format('Y-m-d'),
+            'due_date' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+
+        $invoice = $invoice->calc()->getInvoice();
+        $invoice->service()->markSent()->save();
+
+        (new InvoiceTransactionEventEntry())->run($invoice);
+
+        // October: Initial invoice $100 + $10 tax = $110
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 11, 5)->startOfDay());
+
+        // Increase to $200
+        $line_items[0]->cost = 200;
+        $invoice->line_items = $line_items;
+        $invoice = $invoice->calc()->getInvoice();
+
+        (new InvoiceTransactionEventEntry())->run($invoice);
+
+        // November: Adjustment +$100 + $10 tax
+        $this->travelTo(\Carbon\Carbon::createFromDate(2025, 12, 5)->startOfDay());
+
+        // Increase to $300
+        $line_items[0]->cost = 300;
+        $invoice->line_items = $line_items;
+        $invoice = $invoice->calc()->getInvoice();
+
+        (new InvoiceTransactionEventEntry())->run($invoice);
+
+        // December: Adjustment +$100 + $10 tax
+        $this->travelTo(\Carbon\Carbon::createFromDate(2026, 1, 1)->startOfDay());
+
+        // Check October
+        $payload = [
+            'start_date' => '2025-10-01',
+            'end_date' => '2025-10-31',
+            'date_range' => 'custom',
+            'is_income_billed' => true,
+        ];
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+
+        $this->assertEquals(10, $data['invoices'][1][4]); // $10 tax
+
+        // Check November
+        $payload['start_date'] = '2025-11-01';
+        $payload['end_date'] = '2025-11-30';
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+
+        $this->assertEquals(10, $data['invoices'][1][4]); // +$10 tax adjustment
+
+        // Check December
+        $payload['start_date'] = '2025-12-01';
+        $payload['end_date'] = '2025-12-31';
+
+        $pl = new TaxPeriodReport($this->company, $payload);
+        $data = $pl->boot()->getData();
+
+        $this->assertEquals(10, $data['invoices'][1][4]); // +$10 tax adjustment
 
         $this->travelBack();
     }

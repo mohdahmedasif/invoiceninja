@@ -5662,6 +5662,7 @@ $lang = array(
     'actual_delivery_date_help' => 'Sometimes required when billing across borders. Defines the EXACT date of delivery of goods.',
     'invoice_period' => 'Invoice Period',
     'invoice_period_help' => 'Defines the time period for which the services were provided.',
+    'paused_recurring_invoice_helper' => 'Caution! When restarting a recurring invoice, ensure the next send date is in the future.',
 );
 
 return $lang;
