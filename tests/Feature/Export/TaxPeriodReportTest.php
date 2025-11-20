@@ -150,6 +150,7 @@ class TaxPeriodReportTest extends TestCase
             'user_id' => $this->user->id,
             'company_id' => $this->company->id,
             'is_deleted' => 0,
+            'postal_code' => rand(10000, 99999),
         ]);
     }
 
@@ -255,8 +256,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testSingleInvoiceTaxReportStructure', $this->company, $payload);
 
         $this->assertNotEmpty($data);
 
@@ -305,8 +305,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testSingleInvoiceTaxReportStructure', $this->company, $payload);
 
         $this->assertCount(2, $invoice->transaction_events);
         // Report should have data rows with proper structure
@@ -438,8 +437,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceReportingOverMultiplePeriodsWithAccrualAccountingCheckAdjustmentsForIncreases', $this->company, $payload);
 
         $this->assertCount(2, $data['invoices']); // Header + 1 delta row
         $this->assertCount(2, $data['invoice_items']); // Header + 1 delta row
@@ -557,8 +555,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceReportingOverMultiplePeriodsWithAccrualAccountingCheckAdjustmentsForDecreases', $this->company, $payload);
 
         $this->assertCount(2, $data['invoices']); // Header + 1 delta row
         $this->assertCount(2, $data['invoice_items']); // Header + 1 delta row
@@ -641,8 +638,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true, //accrual
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceReportingOverMultiplePeriodsWithCashAccountingCheckAdjustments', $this->company, $payload);
 
         $transaction_event = $invoice->transaction_events()
         ->where('event_id', '!=', TransactionEvent::INVOICE_UPDATED)
@@ -763,8 +759,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, //cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceWithRefundAndCashReportsAreCorrect', $this->company, $payload);
 
         $invoice = $invoice->fresh();
         $payment = $invoice->payments()->first();
@@ -866,8 +861,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, //cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceWithRefundAndCashReportsAreCorrectAcrossReportingPeriods', $this->company, $payload);
 
         // Verify October report data (payment in same period)
         $this->assertCount(2, $data['invoices']); // Header + 1 payment row
@@ -930,9 +924,8 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, //cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
-        
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceWithRefundAndCashReportsAreCorrectAcrossReportingPeriods', $this->company, $payload);
+
 
         // nlog($invoice->fresh()->transaction_events()->get()->toArray());
         // nlog($data);
@@ -962,8 +955,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, //cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceWithRefundAndCashReportsAreCorrectAcrossReportingPeriods', $this->company, $payload);
 
         // Verify combined October-November report (payment + adjustment)
         $this->assertCount(3, $data['invoices']); // Header + payment row + adjustment row
@@ -1049,8 +1041,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true, // accrual
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledInvoiceInSamePeriodAccrual', $this->company, $payload, false);
 
         // Should have cancelled status, but no tax liability for unpaid portion
         $this->assertCount(2, $data['invoices']); // Header + 1 invoice
@@ -1115,8 +1106,7 @@ class TaxPeriodReportTest extends TestCase
         // Move to next period and cancel
         $this->travelTo(\Carbon\Carbon::createFromDate(2026, 1, 2)->startOfDay());
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledInvoiceInNextPeriodAccrual', $this->company, $payload, false);
 
         // Verify December report shows the invoice created
         $this->assertCount(2, $data['invoices']); // Header + 1 invoice
@@ -1150,8 +1140,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledInvoiceInNextPeriodAccrual', $this->company, $payload, false);
 
         // Verify January report shows the cancellation
         $this->assertGreaterThanOrEqual(2, count($data['invoices'])); // At least header + 1 invoice
@@ -1183,8 +1172,7 @@ class TaxPeriodReportTest extends TestCase
         $payload['start_date'] = '2026-01-01';
         $payload['end_date'] = '2026-01-31';
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledInvoiceInNextPeriodAccrual', $this->company, $payload, false);
 
         // Find our specific invoice in January report
         $found = false;
@@ -1270,8 +1258,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: true);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledInvoiceWithPartialPaymentAccrual', $this->company, $payload, true);
 
         $this->assertCount(2, $data['invoices']);
         $invoice_report = $data['invoices'][1];
@@ -1343,8 +1330,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: true);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testDeletedInvoiceInSamePeriodAccrual', $this->company, $payload, true);
 
         // Should only have header row, no invoice data
         $this->assertCount(1, $data['invoices']); // Just header
@@ -1413,8 +1399,7 @@ class TaxPeriodReportTest extends TestCase
 
         nlog("initial invoice");
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testDeletedPaidInvoiceInNextPeriodAccrual', $this->company, $payload, false);
 
         // Verify October report shows the invoice before deletion
         $this->assertCount(2, $data['invoices']); // Header + 1 invoice
@@ -1452,8 +1437,7 @@ class TaxPeriodReportTest extends TestCase
 
 // nlog("post delete");
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testDeletedPaidInvoiceInNextPeriodAccrual', $this->company, $payload, false);
 
         // nlog($invoice->fresh()->transaction_events()->get()->toArray());
         // (new InvoiceTransactionEventEntry())->run($invoice);
@@ -1463,8 +1447,7 @@ class TaxPeriodReportTest extends TestCase
         $this->assertEquals(-30, $data['invoices'][1][4]); // +$30 GST
 
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testDeletedPaidInvoiceInNextPeriodAccrual', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']);
         $this->assertEquals(-30, $data['invoices'][1][4]); // +$30 GST
@@ -1473,8 +1456,7 @@ class TaxPeriodReportTest extends TestCase
         $payload['start_date'] = '2025-11-01';
         $payload['end_date'] = '2025-11-30';
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testDeletedPaidInvoiceInNextPeriodAccrual', $this->company, $payload, false);
 
         nlog($data);
 
@@ -1551,9 +1533,8 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
-                
+        $data = $this->executeTaxPeriodReportAndSave('testDeletedPaidInvoiceInNextPeriodAccrual', $this->company, $payload, false);
+
         $this->assertCount(2, $data['invoices']);
 
         $repo = new InvoiceRepository();
@@ -1569,8 +1550,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testDeletedPaidInvoiceInNextPeriodAccrual', $this->company, $payload, false);
 
         nlog($data);
 
@@ -1655,8 +1635,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: true);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testPaymentDeletedInSamePeriodCash', $this->company, $payload, true);
 
         // No payment, no cash report entry
         $this->assertCount(1, $data['invoices']); // Just header
@@ -1719,8 +1698,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testPaymentDeletedInNextPeriodCash', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']); // Header + 1 payment row
         $this->assertCount(2, $data['invoice_items']); // Header + 1 payment row
@@ -1775,8 +1753,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testPaymentDeletedInNextPeriodCash', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']); // Header + 1 deletion adjustment row
         $this->assertCount(2, $data['invoice_items']); // Header + 1 deletion adjustment row
@@ -1864,8 +1841,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true, // accrual
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testPaymentDeletedInNextPeriodAccrual', $this->company, $payload, false);
 
         nlog($invoice->fresh()->transaction_events()->get()->toArray());
 
@@ -1892,8 +1868,7 @@ class TaxPeriodReportTest extends TestCase
         $payload['start_date'] = '2025-11-01';
         $payload['end_date'] = '2025-11-30';
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: true);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testPaymentDeletedInNextPeriodAccrual', $this->company, $payload, true);
 
         $this->assertCount(1, $data['invoices']); // Just header, no invoice events in November for accrual
 
@@ -1959,8 +1934,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: true);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledInvoiceInSamePeriodCash', $this->company, $payload, true);
 
         // Cash accounting: unpaid cancelled invoice = no tax liability
         $this->assertCount(1, $data['invoices']); // Just header, no data
@@ -2024,8 +1998,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: true);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledPaidInvoiceInSamePeriodCash', $this->company, $payload, true);
 
         // Should show the payment event but cancellation offsets it
         // The exact behavior depends on implementation
@@ -2089,8 +2062,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledPartiallyPaidInvoiceInNextPeriodCash', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']);
         $this->assertEquals(10, $data['invoices'][1][4]); // +$30 GST from payment
@@ -2110,8 +2082,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledPartiallyPaidInvoiceInNextPeriodCash', $this->company, $payload, false);
 
         // Should show cancelled status with negative adjustment
         $this->assertCount(1, $data['invoices']);
@@ -2179,8 +2150,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledInvoiceWithPartialPaymentCash', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']);
         $this->assertEquals(10, $data['invoices'][1][4]); // +$15 GST (50% of $30)
@@ -2200,8 +2170,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testCancelledInvoiceWithPartialPaymentCash', $this->company, $payload, false);
 
         // Should show reversal of the 50% that was paid
         $this->assertEquals(1, count($data['invoices']));
@@ -2270,8 +2239,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true, // accrual
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceReversedWithCreditNoteNextPeriodAccrual', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']);
         $this->assertEquals(30, $data['invoices'][1][4]); // +$30 GST
@@ -2351,8 +2319,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceReversedWithCreditNoteNextPeriodCash', $this->company, $payload, false);
 
         nlog($data);
 
@@ -2404,8 +2371,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceReversedWithCreditNoteNextPeriodCash', $this->company, $payload, false);
 
         $reversed_event = $invoice->fresh()->transaction_events()->where('metadata->tax_report->tax_summary->status', 'reversed')->first();
         $this->assertNotNull($reversed_event);
@@ -2487,8 +2453,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testPartialPaymentThenFullRefundAcrossPeriods', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']); // Header + 1 partial payment row
         $this->assertCount(2, $data['invoice_items']); // Header + 1 partial payment row
@@ -2549,8 +2514,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => false, // cash
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testPartialPaymentThenFullRefundAcrossPeriods', $this->company, $payload, false);
 
         // Should show negative adjustment
         $this->assertGreaterThanOrEqual(1, count($data['invoices']));
@@ -2631,11 +2595,8 @@ class TaxPeriodReportTest extends TestCase
             'date_range' => 'custom',
             'is_income_billed' => true,
         ];
-        
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
 
-        $pl = null;
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceIncreasedMultipleTimesAcrossPeriods', $this->company, $payload, false);
 
         $invoice = $invoice->fresh();
         $this->assertEquals(1, $invoice->fresh()->transaction_events()->count());
@@ -2662,8 +2623,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pb = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pb->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceIncreasedMultipleTimesAcrossPeriods', $this->company, $payload, false);
 
         $this->assertEquals(2, $invoice->fresh()->transaction_events()->count());
         
@@ -2683,8 +2643,7 @@ class TaxPeriodReportTest extends TestCase
             'date_range' => 'custom',
             'is_income_billed' => true,
         ];
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceIncreasedMultipleTimesAcrossPeriods', $this->company, $payload, false);
 
         $this->assertEquals(3, $invoice->fresh()->transaction_events()->count());
 
@@ -2697,8 +2656,7 @@ class TaxPeriodReportTest extends TestCase
             'is_income_billed' => true,
         ];
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceIncreasedMultipleTimesAcrossPeriods', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']); // Header + 1 invoice row
         $this->assertCount(2, $data['invoice_items']); // Header + 1 item row
@@ -2722,8 +2680,7 @@ class TaxPeriodReportTest extends TestCase
         $payload['start_date'] = '2025-11-01';
         $payload['end_date'] = '2025-11-30';
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceIncreasedMultipleTimesAcrossPeriods', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']); // Header + 1 delta row
         $this->assertCount(2, $data['invoice_items']); // Header + 1 delta row
@@ -2747,8 +2704,7 @@ class TaxPeriodReportTest extends TestCase
         $payload['start_date'] = '2025-12-01';
         $payload['end_date'] = '2025-12-31';
 
-        $pl = new TaxPeriodReport($this->company, $payload, skip_initialization: false);
-        $data = $pl->boot()->getData();
+        $data = $this->executeTaxPeriodReportAndSave('testInvoiceIncreasedMultipleTimesAcrossPeriods', $this->company, $payload, false);
 
         $this->assertCount(2, $data['invoices']); // Header + 1 delta row
         $this->assertCount(2, $data['invoice_items']); // Header + 1 delta row

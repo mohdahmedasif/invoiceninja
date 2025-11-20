@@ -54,7 +54,7 @@ class PaymentTransactionEventEntry implements ShouldQueue
 
     public function handle()
     {
-        nlog("set invoice adjustment => {$this->invoice_adjustment}");
+        
        try{
         $this->runLog();
        }
@@ -99,12 +99,9 @@ class PaymentTransactionEventEntry implements ShouldQueue
                 ->get()
                 ->filter(function($invoice){
                     //only insert adjustment entries if we are after the end of the month!!
-                    nlog(Carbon::parse($invoice->date)->endOfMonth()->isBefore(now()->addSeconds($this->payment->company->timezone_offset())));
                     return Carbon::parse($invoice->date)->endOfMonth()->isBefore(now()->addSeconds($this->payment->company->timezone_offset()));
                 })
                 ->each(function($invoice){
-
-                    // nlog(" I am inserting!!! ");
                 $this->setPaidRatio($invoice);
 
                 //delete any other payment mutations here if this is a delete event, the refunds are redundant in this time period
@@ -156,44 +153,6 @@ class PaymentTransactionEventEntry implements ShouldQueue
         return $this;
     }
 
-    private function getRefundRatio(Invoice $invoice): float
-    {
-        // For partial refunds, calculate ratio based on what was previously paid
-        // Get the previous transaction event to find the historical paid_to_date
-        if ($this->invoice_adjustment <= 0) {
-            return 0;
-        }
-
-        // Get the most recent transaction event to see what was previously recorded
-        $previous_event = $invoice->transaction_events()
-            ->orderBy('id', 'desc')
-            ->first();
-
-        if ($previous_event && $previous_event->invoice_paid_to_date > 0) {
-            // Ratio: refund_amount / previous_paid_to_date
-            // This gives us the portion of the previous payment being refunded
-            nlog("Using previous event: refund {$this->invoice_adjustment} / {$previous_event->invoice_paid_to_date}");
-            return $this->invoice_adjustment / $previous_event->invoice_paid_to_date;
-        }
-
-        // Fallback: calculate what paid_to_date was BEFORE this refund
-        // Since the refund has already been processed, paid_to_date is already reduced
-        // So: paid_to_date_before_refund = current_paid_to_date + refund_amount
-        $paid_to_date_before = $invoice->paid_to_date + $this->invoice_adjustment;
-
-        if ($paid_to_date_before > 0) {
-            nlog("No previous event: refund {$this->invoice_adjustment} / {$paid_to_date_before}");
-            return $this->invoice_adjustment / $paid_to_date_before;
-        }
-
-        return 0;
-    }
-
-    private function calculateRatio(float $amount): float
-    {
-        return round($amount * $this->paid_ratio, 2);
-    }
-
     /**
      * Existing tax details are not deleted, but pending taxes are set to 0
      *
@@ -224,6 +183,9 @@ class PaymentTransactionEventEntry implements ShouldQueue
                 'tax_rate' => $tax['tax_rate'],
                 'taxable_amount' => round($base_amount * $refund_ratio, 2) * -1,
                 'tax_amount' => round($tax['total'] * $refund_ratio, 2) * -1,
+                'line_total' => $base_amount,
+                'total_tax' => $tax['total'],
+                'postal_code' => $invoice->client->postal_code,
                ];
             $details[] = $tax_detail;
         }
@@ -266,6 +228,9 @@ class PaymentTransactionEventEntry implements ShouldQueue
                 'taxable_amount' => $base_amount * -1,
                 'tax_amount' => $tax['total'] * -1,
                 'tax_status' => 'payment_deleted',
+                'line_total' => $base_amount,
+                'total_tax' => $tax['total'],
+                'postal_code' => $invoice->client->postal_code,
             ];
 
             $details[] = $tax_detail;
@@ -304,7 +269,7 @@ class PaymentTransactionEventEntry implements ShouldQueue
 
         $total_paid = $this->payments->sum('amount') - $this->payments->sum('refunded');
 
-        nlog("total paid => {$total_paid} - total taxes => {$invoice->total_taxes} - amount => {$invoice->amount}");
+        // nlog("total paid => {$total_paid} - total taxes => {$invoice->total_taxes} - amount => {$invoice->amount}");
 
         return round($invoice->total_taxes * ($total_paid / $invoice->amount), 2);
 

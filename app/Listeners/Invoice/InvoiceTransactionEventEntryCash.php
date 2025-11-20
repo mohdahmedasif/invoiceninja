@@ -84,13 +84,7 @@ class InvoiceTransactionEventEntryCash
 
         $this->paid_ratio = $invoice->paid_to_date / $invoice->amount;
 
-        nlog("paid ratio => {$this->paid_ratio}");
         return $this;
-    }
-
-    private function calculateRatio(float $amount): float
-    {
-        return round($amount * $this->paid_ratio, 2);
     }
 
     private function getMetadata($invoice)
@@ -108,6 +102,9 @@ class InvoiceTransactionEventEntryCash
                 'tax_rate' => $tax['tax_rate'],
                 'taxable_amount' => ($tax['base_amount'] ?? $calc->getNetSubtotal()) * $this->paid_ratio,
                 'tax_amount' => $tax['total'] * $this->paid_ratio,
+                'line_total' => $tax['base_amount'],
+                'total_tax' => $tax['total'],
+                'postal_code' => $invoice->client->postal_code,
             ];
             $details[] = $tax_detail;
         }

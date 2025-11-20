@@ -318,7 +318,7 @@ class TaxPeriodReport extends BaseExport
     {
         $currency = $this->company->currency();
 
-        $formatted = number_format(9990.00, $currency->precision, $currency->decimal_separator, $currency->thousand_separator);
+        $formatted = number_format(90.00, $currency->precision, $currency->decimal_separator, $currency->thousand_separator);
         $formatted = str_replace('9', '#', $formatted);
         $this->number_format = $formatted;
 
@@ -356,8 +356,10 @@ class TaxPeriodReport extends BaseExport
     public function createInvoiceSummarySheet()
     {
 
+        $worksheet_title = $this->cash_accounting ? ctrans('texts.cash_accounting') : ctrans('texts.accrual_accounting');
+
         $worksheet = $this->spreadsheet->createSheet();
-        $worksheet->setTitle(ctrans('texts.invoice')." ".ctrans('texts.cash_vs_accrual'));
+        $worksheet->setTitle(substr(ctrans('texts.invoice')." ".$worksheet_title, 0, 30));
         $worksheet->fromArray($this->data['invoices'], null, 'A1');
 
         $worksheet->getStyle('B:B')->getNumberFormat()->setFormatCode($this->company->date_format());
@@ -374,13 +376,14 @@ class TaxPeriodReport extends BaseExport
      */
     public function createInvoiceItemSummarySheet()
     {
+        $worksheet_title = $this->cash_accounting ? ctrans('texts.cash_accounting') : ctrans('texts.accrual_accounting');
 
         $worksheet = $this->spreadsheet->createSheet();
-        $worksheet->setTitle(ctrans('texts.invoice_item')." ".ctrans('texts.cash_vs_accrual'));
+        $worksheet->setTitle(substr(ctrans('texts.invoice_item')." ".$worksheet_title, 0, 30));
         $worksheet->fromArray($this->data['invoice_items'], null, 'A1');
 
         $worksheet->getStyle('B:B')->getNumberFormat()->setFormatCode($this->company->date_format());
-        $worksheet->getStyle('D:D')->getNumberFormat()->setFormatCode($this->number_format."%");
+        $worksheet->getStyle('D:D')->getNumberFormat()->setFormatCode($this->number_format);
         $worksheet->getStyle('E:E')->getNumberFormat()->setFormatCode($this->currency_format);
         $worksheet->getStyle('F:F')->getNumberFormat()->setFormatCode($this->currency_format);
 

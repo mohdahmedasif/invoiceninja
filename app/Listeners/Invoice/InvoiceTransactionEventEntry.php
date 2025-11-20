@@ -171,10 +171,10 @@ class InvoiceTransactionEventEntry
 
         $previous_tax_details = $previous_transaction_event->metadata->tax_report->tax_details;
 
+        $postal_code = $invoice->client->postal_code;
+
         foreach ($taxes as $tax) {
             $previousLine = collect($previous_tax_details)->where('tax_name', $tax['name'])->first() ?? null;
-nlog($previousLine);
-nlog($tax);
 
             $tax_detail = [
                 'tax_name' => $tax['name'],
@@ -183,11 +183,8 @@ nlog($tax);
                 'total_tax' => $tax['total'],
                 'taxable_amount' => ($tax['base_amount'] ?? $calc->getNetSubtotal()) - ($previousLine->line_total ?? 0),
                 'tax_amount' => $tax['total'] - ($previousLine->total_tax ?? 0),
-                // 'taxable_amount_adjustment' => ($tax['base_amount'] ?? $calc->getNetSubtotal()) - ($previousLine->taxable_amount ?? 0),
-                // 'tax_amount_adjustment' => $tax['total'] - ($previousLine->tax_amount ?? 0),
+                'postal_code' => $postal_code,
             ];
-
-            nlog($tax_detail);
 
             $details[] = $tax_detail;
         }
@@ -229,15 +226,7 @@ nlog($tax);
 
         $taxes = array_merge($calc->getTaxMap()->merge($calc->getTotalTaxMap())->toArray());
 
-        //If there is a previous transaction event, we need to consider the taxable amount.
-        // $previous_transaction_event = TransactionEvent::where('event_id', TransactionEvent::INVOICE_UPDATED)
-        //                                     ->where('invoice_id', $invoice->id)
-        //                                     ->orderBy('timestamp', 'desc')
-        //                                     ->first();
-
-        if($this->paid_ratio == 0){
-            // setup a 0/0 recorded
-        }
+        $postal_code = $invoice->client->postal_code;
 
         foreach ($taxes as $tax) {
             $tax_detail = [
@@ -247,6 +236,8 @@ nlog($tax);
                 'tax_amount' => ($tax['total'] * $this->paid_ratio * -1),
                 'line_total' => $tax['base_amount'] * $this->paid_ratio * -1,
                 'total_tax' => $tax['total'] * $this->paid_ratio * -1,
+                'postal_code' => $postal_code,
+
             ];
             $details[] = $tax_detail;
         }
@@ -280,15 +271,8 @@ nlog($tax);
 
         $taxes = array_merge($calc->getTaxMap()->merge($calc->getTotalTaxMap())->toArray());
 
-        //If there is a previous transaction event, we need to consider the taxable amount.
-        // $previous_transaction_event = TransactionEvent::where('event_id', TransactionEvent::INVOICE_UPDATED)
-        //                                     ->where('invoice_id', $invoice->id)
-        //                                     ->orderBy('timestamp', 'desc')
-        //                                     ->first();
+        $postal_code = $invoice->client->postal_code;
 
-        if($this->paid_ratio == 0){
-            // setup a 0/0 recorded
-        }
 
         foreach ($taxes as $tax) {
             $tax_detail = [
@@ -298,6 +282,7 @@ nlog($tax);
                 'tax_amount' => ($tax['total'] * $this->paid_ratio),
                 'line_total' => $tax['base_amount'] * $this->paid_ratio,
                 'total_tax' => $tax['total'] * $this->paid_ratio,
+                'postal_code' => $postal_code,
             ];
             $details[] = $tax_detail;
         }
@@ -330,6 +315,7 @@ nlog($tax);
         $details = [];
 
         $taxes = array_merge($calc->getTaxMap()->merge($calc->getTotalTaxMap())->toArray());
+        $postal_code = $invoice->client->postal_code;
 
         foreach ($taxes as $tax) {
             $tax_detail = [
@@ -339,6 +325,7 @@ nlog($tax);
                 'tax_amount' => $tax['total'] * -1,
                 'line_total' => $tax['base_amount'] * -1,
                 'total_tax' => $tax['total'] * -1,
+                'postal_code' => $postal_code,
             ];
             $details[] = $tax_detail;
         }
@@ -375,6 +362,7 @@ nlog($tax);
         $details = [];
 
         $taxes = array_merge($calc->getTaxMap()->merge($calc->getTotalTaxMap())->toArray());
+        $postal_code = $invoice->client->postal_code;
 
         foreach ($taxes as $tax) {
             $tax_detail = [
@@ -384,6 +372,7 @@ nlog($tax);
                 'tax_amount' => $tax['total'],
                 'line_total' => $tax['base_amount'] ?? $calc->getNetSubtotal(),
                 'total_tax' => $tax['total'],
+                'postal_code' => $postal_code,
             ];
             $details[] = $tax_detail;
         }
@@ -401,18 +390,5 @@ nlog($tax);
         ]);
 
     }
-
-    private function getTotalTaxPaid($invoice)
-    {
-        if($invoice->amount == 0){
-            return 0;
-        }
-
-        $total_paid = $this->payments->sum('amount') - $this->payments->sum('refunded');
-
-        return round($invoice->total_taxes * ($total_paid / $invoice->amount), 2);
-
-    }
-
     
 }

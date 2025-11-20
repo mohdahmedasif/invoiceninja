@@ -24,6 +24,7 @@ class TaxDetail
         public float $tax_amount,
         public float $line_total = 0,
         public float $total_tax = 0,
+        public string $postal_code = '',
     ) {}
 
     /**
@@ -38,6 +39,7 @@ class TaxDetail
             tax_amount: $metadata->tax_amount ?? 0,
             line_total: $metadata->line_total ?? 0,
             total_tax: $metadata->total_tax ?? 0,
+            postal_code: $metadata->postal_code ?? '',
         );
     }
 
@@ -126,6 +128,7 @@ class TaxDetail
             'tax_amount' => $this->tax_amount,
             'line_total' => $this->line_total,
             'total_tax' => $this->total_tax,
+            'postal_code' => $this->postal_code,
         ];
     }
 }
