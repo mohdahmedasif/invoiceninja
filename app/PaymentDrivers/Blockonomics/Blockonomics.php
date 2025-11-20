@@ -59,8 +59,8 @@ class Blockonomics implements LivewireMethodInterface
             return ['success' => false, 'message' => 'Please enter a valid API key'];
         }
 
-        // $params = config('ninja.environment') == 'development' ? '?reset=1' : '';
-        $url = 'https://www.blockonomics.co/api/new_address';
+        $domain = request()->getHost();
+        $url = 'https://www.blockonomics.co/api/new_address?match_callback=' . $domain;
 
         $response = Http::withToken($api_key)
                         ->post($url, []);
