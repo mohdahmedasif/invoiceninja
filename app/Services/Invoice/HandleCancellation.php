@@ -37,7 +37,7 @@ class HandleCancellation extends AbstractService
             return $this->invoice;
         }
 
-        if($this->invoice->verifactuEnabled()) {
+        if ($this->invoice->verifactuEnabled()) {
             return $this->verifactuCancellation();
         }
 
@@ -63,17 +63,17 @@ class HandleCancellation extends AbstractService
         return $this->invoice;
     }
 
-    
+
     /**
      * verifactuCancellation
-     * @todo we must ensure that if there have been previous credit notes attached to the invoice, 
+     * @todo we must ensure that if there have been previous credit notes attached to the invoice,
      *       that the credit notes are not exceeded by the cancellation amount.
-     *       This is because the credit notes are not linked to the invoice, but are linked to the 
+     *       This is because the credit notes are not linked to the invoice, but are linked to the
      *       invoice's backup.
      *       So we need to check the backup for the credit notes and ensure that the cancellation amount
      *       does not exceed the credit notes.
      *       If it does, we need to create a new credit note with the remaining amount.
-     *       This is because the credit notes are not linked to the invoice, but are linked to the 
+     *       This is because the credit notes are not linked to the invoice, but are linked to the
      * @return Invoice
      */
     private function verifactuCancellation(): Invoice
@@ -83,9 +83,8 @@ class HandleCancellation extends AbstractService
         $this->invoice->service()->workFlow()->save();
 
         // R2 Cancellation - do not create a separate document
-        if(in_array($this->invoice->backup->document_type, ['R1','R2'])){ // You cannot cancel a cancellation!!!!!
-        }
-        else {
+        if (in_array($this->invoice->backup->document_type, ['R1','R2'])) { // You cannot cancel a cancellation!!!!!
+        } else {
             $replicated_invoice = $this->invoice->replicate();
             unset($replicated_invoice->backup);
             $replicated_invoice->status_id = Invoice::STATUS_DRAFT;
@@ -105,7 +104,7 @@ class HandleCancellation extends AbstractService
 
             $items = $replicated_invoice->line_items;
 
-            foreach($items as &$item) {
+            foreach ($items as &$item) {
                 $item->quantity = $item->quantity * -1;
             }
 
@@ -114,7 +113,7 @@ class HandleCancellation extends AbstractService
             $replicated_invoice->backup->parent_invoice_number = $this->invoice->number;
             $replicated_invoice->backup->document_type = 'R2'; // Full Credit Note Generated for the invoice
             $replicated_invoice->backup->notes = $this->reason;
-            
+
             $invoice_repository = new InvoiceRepository();
             $replicated_invoice = $invoice_repository->save([], $replicated_invoice);
             $replicated_invoice->service()->markSent()->sendVerifactu()->save();
@@ -125,7 +124,7 @@ class HandleCancellation extends AbstractService
         }
 
         $this->invoice->fresh();
-        
+
         event(new InvoiceWasCancelled($this->invoice, $this->invoice->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null)));
         event('eloquent.updated: App\Models\Invoice', $this->invoice);
 
@@ -135,7 +134,7 @@ class HandleCancellation extends AbstractService
     public function reverse()
     {
         /* Will turn the negative cancellation amount to a positive adjustment*/
-        
+
         $cancellation = $this->invoice->backup->cancellation;
         $adjustment = $cancellation->adjustment * -1;
 
@@ -172,7 +171,7 @@ class HandleCancellation extends AbstractService
         // Direct assignment to properties
         $this->invoice->backup->cancellation->adjustment = $adjustment;
         $this->invoice->backup->cancellation->status_id = $this->invoice->status_id;
-        
+
         $this->invoice->saveQuietly();
     }
 }

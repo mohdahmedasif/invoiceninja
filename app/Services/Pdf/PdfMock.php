@@ -175,7 +175,7 @@ class PdfMock
                 // $entity->invoice = Invoice::factory()->make(); /** @phpstan-ignore-line */
                 // $entity->invoice->client = Client::factory()->make(['settings' => $settings]); //@phpstan-ignore-line
                 // $entity->invoice->invitation = InvoiceInvitation::factory()->make(); //@phpstan-ignore-line
-// $entity->invoice->client->setRelation('company', $this->company);
+                // $entity->invoice->client->setRelation('company', $this->company);
                 /** @var \App\Models\Invoice $entity */
                 $entity = Invoice::factory()->make();
                 $entity->client = Client::factory()->make(['settings' => $settings]); //@phpstan-ignore-line

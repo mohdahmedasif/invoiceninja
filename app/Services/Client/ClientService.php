@@ -53,7 +53,7 @@ class ClientService
                         ->where('client_id', $this->client->id)
                         ->whereIn('status_id', [Invoice::STATUS_SENT, Invoice::STATUS_PARTIAL])
                         ->where('is_deleted', false)
-                        ->sum('balance');    
+                        ->sum('balance');
 
             DB::connection(config('database.default'))->transaction(function () use ($balance) {
                 $this->client = Client::withTrashed()->where('id', $this->client->id)->lockForUpdate()->first();
@@ -82,7 +82,7 @@ class ClientService
      */
     public function updateBalance(float $amount)
     {
-        
+
         DB::connection(config('database.default'))->transaction(function () use ($amount) {
             $this->client = Client::withTrashed()->where('id', $this->client->id)->lockForUpdate()->first();
             $this->client->balance += $amount;
@@ -94,7 +94,7 @@ class ClientService
 
     public function updateBalanceAndPaidToDate($balance, $paid_to_date)
     {
-        
+
         DB::connection(config('database.default'))->transaction(function () use ($balance, $paid_to_date) {
             $this->client = Client::withTrashed()->where('id', $this->client->id)->lockForUpdate()->first();
             $this->client->balance += $balance;
@@ -107,7 +107,7 @@ class ClientService
 
     public function updatePaidToDate($amount)
     {
-        
+
         DB::connection(config('database.default'))->transaction(function () use ($amount) {
             $this->client = Client::withTrashed()->where('id', $this->client->id)->lockForUpdate()->first();
             $this->client->paid_to_date += $amount;

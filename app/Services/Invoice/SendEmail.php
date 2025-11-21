@@ -46,14 +46,14 @@ class SendEmail extends AbstractService
 
         $this->invoice
             ->invitations()
-            ->whereHas('contact', function($query) {
-                $query->where(function ($sq){
+            ->whereHas('contact', function ($query) {
+                $query->where(function ($sq) {
                     $sq->whereNotNull('email')
                         ->orWhere('email', '!=', '');
                 })->where('is_locked', false)
                 ->withoutTrashed();
             })
-            ->when($this->contact, function($query){
+            ->when($this->contact, function ($query) {
                 $query->where('client_contact_id', $this->contact->id);
             })
             ->each(function ($invitation) use ($base_template) {
@@ -73,7 +73,7 @@ class SendEmail extends AbstractService
 
                 $this->invoice->entityEmailEvent($invitation, $base_template, $base_template);
 
-        });
+            });
 
         event(new EntityWasEmailed($this->invoice->invitations->first(), $this->invoice->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null), 'invoice'));
 

@@ -230,7 +230,7 @@ class TemplateAction implements ShouldQueue
 
     public function middleware()
     {
-        return [(new WithoutOverlapping('template-' . $this->company->company_key . $this->entity))->releaseAfter(60)];
+        return [(new WithoutOverlapping('template-' . $this->company->company_key . $this->entity))->dontRelease()];
     }
 
 }
