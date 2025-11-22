@@ -20,28 +20,13 @@ use Illuminate\Support\Facades\Artisan;
 
 class RebuildElasticIndexes extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'elastic:rebuild
+                            {--model= : Rebuild only a specific model (e.g., Invoice, Client)}
                             {--force : Force the operation without confirmation}
-                            {--skip-migrations : Skip running migrations after dropping indexes}
-                            {--skip-import : Skip importing data after migration}';
+                            {--dry-run : Show what would be done without making changes}';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Drop all Elasticsearch indexes and rebuild them using elastic migrations';
+    protected $description = 'Rebuild Elasticsearch indexes one at a time to minimize production impact';
 
-    /**
-     * All searchable models and their index names
-     *
-     * @var array
-     */
     protected array $searchableModels = [
         Client::class => 'clients_v2',
         ClientContact::class => 'client_contacts_v2',
@@ -57,54 +42,42 @@ class RebuildElasticIndexes extends Command
         VendorContact::class => 'vendor_contacts_v2',
     ];
 
-    /**
-     * Legacy index names that might still exist
-     *
-     * @var array
-     */
-    protected array $legacyIndexes = [
-        'clients',
-        'client_contacts',
-        'credits',
-        'expenses',
-        'invoices',
-        'invoices_index',
-        'projects',
-        'purchase_orders',
-        'quotes',
-        'recurring_invoices',
-        'tasks',
-        'vendors',
-        'vendor_contacts',
-    ];
-
-    /**
-     * Execute the console command.
-     */
-    public function handle()
+    public function handle(): int
     {
         $this->info('===========================================');
-        $this->info('  Elasticsearch Index Rebuild Utility');
+        $this->info('  Elasticsearch Index Rebuild (One-by-One)');
         $this->info('===========================================');
         $this->newLine();
 
-        // Check if Elasticsearch is available
         if (!$this->checkElasticsearchConnection()) {
             $this->error('Cannot connect to Elasticsearch. Please check your configuration.');
             return self::FAILURE;
         }
 
-        // Get confirmation unless --force is used
+        // Handle single model rebuild
+        if ($modelName = $this->option('model')) {
+            return $this->rebuildSingleModel($modelName);
+        }
+
+        // Dry run mode
+        if ($this->option('dry-run')) {
+            return $this->performDryRun();
+        }
+
+        // Get confirmation for full rebuild
         if (!$this->option('force')) {
-            $this->warn('This command will:');
-            $this->warn('  1. Drop all existing Elasticsearch indexes');
-            $this->warn('  2. Run elastic migrations to recreate indexes');
-            $this->warn('  3. Re-import all searchable data');
-            $this->newLine();
-            $this->warn('This operation cannot be undone!');
+            $this->warn('This command will rebuild ALL Elasticsearch indexes ONE AT A TIME:');
+            $this->info('  • Each index will be dropped, migrated, and re-imported sequentially');
+            $this->info('  • Search will be unavailable for each model during its rebuild');
+            $this->info('  • Other models remain searchable while one rebuilds');
+            $this->info('  • This minimizes overall downtime for production systems');
             $this->newLine();
 
-            if (!$this->confirm('Do you want to continue?', false)) {
+            $totalRecords = $this->getTotalRecordCount();
+            $this->warn("Total records to re-index: {$totalRecords}");
+            $this->newLine();
+
+            if (!$this->confirm('Do you want to rebuild all indexes?', false)) {
                 $this->info('Operation cancelled.');
                 return self::SUCCESS;
             }
@@ -112,39 +85,160 @@ class RebuildElasticIndexes extends Command
 
         $this->newLine();
 
-        // Step 1: Drop all indexes
-        $this->info('[Step 1/3] Dropping all Elasticsearch indexes...');
-        $this->dropAllIndexes();
+        // Rebuild all models one by one
+        $totalModels = count($this->searchableModels);
+        $currentModel = 0;
+        $startTime = now();
 
-        // Step 2: Run migrations
-        if (!$this->option('skip-migrations')) {
-            $this->newLine();
-            $this->info('[Step 2/3] Running elastic migrations...');
-            $this->runMigrations();
-        } else {
-            $this->warn('[Step 2/3] Skipped: elastic migrations');
-        }
+        foreach ($this->searchableModels as $modelClass => $indexName) {
+            $currentModel++;
+            $modelName = class_basename($modelClass);
 
-        // Step 3: Import data
-        if (!$this->option('skip-import')) {
             $this->newLine();
-            $this->info('[Step 3/3] Re-importing searchable data...');
-            $this->importData();
-        } else {
-            $this->warn('[Step 3/3] Skipped: data import');
+            $this->info("[{$currentModel}/{$totalModels}] Rebuilding {$modelName}...");
+            $this->line("Index: {$indexName}");
+
+            if (!$this->rebuildIndex($modelClass, $indexName)) {
+                $this->error("Failed to rebuild {$modelName}. Stopping.");
+                return self::FAILURE;
+            }
         }
 
         $this->newLine();
-        $this->info('===========================================');
-        $this->info('✓ Elasticsearch indexes rebuilt successfully!');
-        $this->info('===========================================');
-
+        $duration = now()->diffForHumans($startTime, true);
+        $this->info('✓ All indexes rebuilt successfully!');
+        $this->info("Total time: {$duration}");
         return self::SUCCESS;
     }
 
-    /**
-     * Check if Elasticsearch is reachable
-     */
+    protected function rebuildSingleModel(string $modelName): int
+    {
+        // Find the model class
+        $modelClass = null;
+        foreach ($this->searchableModels as $class => $indexName) {
+            if (class_basename($class) === $modelName) {
+                $modelClass = $class;
+                break;
+            }
+        }
+
+        if (!$modelClass) {
+            $this->error("Model '{$modelName}' not found.");
+            $this->info('Available models: ' . implode(', ', array_map('class_basename', array_keys($this->searchableModels))));
+            return self::FAILURE;
+        }
+
+        $indexName = $this->searchableModels[$modelClass];
+        $recordCount = $modelClass::count();
+
+        $this->newLine();
+        $this->info("Rebuilding {$modelName}");
+        $this->line("Index: {$indexName}");
+        $this->line("Records: {$recordCount}");
+        $this->newLine();
+
+        if (!$this->option('force') && !$this->option('dry-run')) {
+            if (!$this->confirm('Continue with rebuild?', true)) {
+                $this->info('Operation cancelled.');
+                return self::SUCCESS;
+            }
+        }
+
+        if ($this->option('dry-run')) {
+            $this->info('DRY RUN - Would rebuild:');
+            $this->line("  1. Drop index: {$indexName}");
+            $this->line("  2. Run elastic:migrate for {$modelName}");
+            $this->line("  3. Import {$recordCount} {$modelName} records");
+            return self::SUCCESS;
+        }
+
+        $startTime = now();
+
+        if ($this->rebuildIndex($modelClass, $indexName)) {
+            $duration = now()->diffForHumans($startTime, true);
+            $this->newLine();
+            $this->info("✓ {$modelName} rebuilt successfully in {$duration}!");
+            return self::SUCCESS;
+        }
+
+        $this->error("✗ Failed to rebuild {$modelName}");
+        return self::FAILURE;
+    }
+
+    protected function performDryRun(): int
+    {
+        $this->info('DRY RUN - The following would be rebuilt:');
+        $this->newLine();
+
+        foreach ($this->searchableModels as $modelClass => $indexName) {
+            $modelName = class_basename($modelClass);
+            $recordCount = $modelClass::count();
+
+            $this->line("• {$modelName}");
+            $this->line("  Index: {$indexName}");
+            $this->line("  Records: {$recordCount}");
+            $this->newLine();
+        }
+
+        $this->info('No changes made (dry run mode)');
+        return self::SUCCESS;
+    }
+
+    protected function rebuildIndex(string $modelClass, string $indexName): bool
+    {
+        $modelName = class_basename($modelClass);
+        $client = $this->getElasticsearchClient();
+
+        try {
+            // Step 1: Drop the index
+            $this->line("  [1/3] Dropping index {$indexName}...");
+            if ($client->indices()->exists(['index' => $indexName])) {
+                $client->indices()->delete(['index' => $indexName]);
+                $this->info("    ✓ Index dropped");
+            } else {
+                $this->line("    - Index does not exist (will be created)", 'comment');
+            }
+
+            // Step 2: Run migration for this specific index
+            $this->line("  [2/3] Running elastic migration...");
+            // Note: elastic:migrate recreates all indexes, but only the dropped one will be created
+            Artisan::call('elastic:migrate', [], $this->getOutput());
+            $this->info("    ✓ Migration completed");
+
+            // Step 3: Import data
+            $this->line("  [3/3] Importing {$modelName} data...");
+            $recordCount = $modelClass::count();
+
+            if ($recordCount > 0) {
+                Artisan::call('scout:import', [
+                    'model' => $modelClass,
+                ], $this->getOutput());
+                $this->info("    ✓ Imported {$recordCount} records");
+            } else {
+                $this->line("    - No records to import", 'comment');
+            }
+
+            return true;
+
+        } catch (\Exception $e) {
+            $this->error("    ✗ Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    protected function getTotalRecordCount(): int
+    {
+        $total = 0;
+        foreach ($this->searchableModels as $modelClass => $indexName) {
+            try {
+                $total += $modelClass::count();
+            } catch (\Exception $e) {
+                // Skip if model fails to count
+            }
+        }
+        return $total;
+    }
+
     protected function checkElasticsearchConnection(): bool
     {
         try {
@@ -158,126 +252,8 @@ class RebuildElasticIndexes extends Command
         }
     }
 
-    /**
-     * Get Elasticsearch client
-     */
     protected function getElasticsearchClient()
     {
         return ClientBuilder::fromConfig(config('elastic.client.connections.default'));
-    }
-
-    /**
-     * Drop all Elasticsearch indexes
-     */
-    protected function dropAllIndexes(): void
-    {
-        $client = $this->getElasticsearchClient();
-        $droppedCount = 0;
-
-        // Get all current indexes
-        try {
-            $indices = $client->cat()->indices(['format' => 'json']);
-        } catch (\Exception $e) {
-            $this->warn('Could not list indices: ' . $e->getMessage());
-            $indices = [];
-        }
-
-        // Build list of all indexes to drop
-        $indexesToDrop = array_merge(
-            array_values($this->searchableModels),
-            $this->legacyIndexes
-        );
-
-        // Drop each index
-        foreach ($indexesToDrop as $indexName) {
-            try {
-                if ($client->indices()->exists(['index' => $indexName])) {
-                    $client->indices()->delete(['index' => $indexName]);
-                    $this->line("  ✓ Dropped index: {$indexName}");
-                    $droppedCount++;
-                } else {
-                    $this->line("  - Index does not exist: {$indexName}", 'comment');
-                }
-            } catch (\Exception $e) {
-                $this->warn("  ✗ Failed to drop index {$indexName}: " . $e->getMessage());
-            }
-        }
-
-        // Also drop any other indexes that match our patterns
-        foreach ($indices as $index) {
-            $indexName = $index['index'];
-
-            // Skip system indexes
-            if (str_starts_with($indexName, '.')) {
-                continue;
-            }
-
-            // Drop indexes that match our naming patterns but weren't in our list
-            $patterns = ['clients', 'invoices', 'quotes', 'credits', 'expenses', 'vendors', 'projects', 'tasks', 'purchase_orders', 'recurring'];
-            foreach ($patterns as $pattern) {
-                if (str_contains($indexName, $pattern) && !in_array($indexName, $indexesToDrop)) {
-                    try {
-                        $client->indices()->delete(['index' => $indexName]);
-                        $this->line("  ✓ Dropped additional index: {$indexName}");
-                        $droppedCount++;
-                    } catch (\Exception $e) {
-                        $this->warn("  ✗ Failed to drop index {$indexName}: " . $e->getMessage());
-                    }
-                    break;
-                }
-            }
-        }
-
-        $this->info("\n  Total indexes dropped: {$droppedCount}");
-    }
-
-    /**
-     * Run elastic migrations
-     */
-    protected function runMigrations(): void
-    {
-        $this->line('  Running: php artisan elastic:migrate');
-
-        try {
-            Artisan::call('elastic:migrate', [], $this->getOutput());
-            $this->info('  ✓ Migrations completed successfully');
-        } catch (\Exception $e) {
-            $this->error('  ✗ Migration failed: ' . $e->getMessage());
-            throw $e;
-        }
-    }
-
-    /**
-     * Import data for all searchable models
-     */
-    protected function importData(): void
-    {
-        $this->line('  Importing searchable data for all models...');
-        $this->newLine();
-
-        $totalImported = 0;
-
-        foreach ($this->searchableModels as $modelClass => $indexName) {
-            $modelName = class_basename($modelClass);
-
-            try {
-                $this->line("  Importing {$modelName}...");
-
-                // Use Laravel Scout's import command
-                Artisan::call('scout:import', [
-                    'model' => $modelClass,
-                ], $this->getOutput());
-
-                // Get count of records
-                $count = $modelClass::count();
-                $this->info("    ✓ Imported {$count} {$modelName} records");
-                $totalImported += $count;
-            } catch (\Exception $e) {
-                $this->error("    ✗ Failed to import {$modelName}: " . $e->getMessage());
-            }
-        }
-
-        $this->newLine();
-        $this->info("  Total records imported: {$totalImported}");
     }
 }
