@@ -18,6 +18,7 @@ use App\Models\VendorContact;
 use Elastic\Elasticsearch\ClientBuilder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 
 class RebuildElasticIndexes extends Command
 {
@@ -392,7 +393,7 @@ class RebuildElasticIndexes extends Command
                 
             case 'redis':
                 // Redis: pending jobs in list + reserved jobs in processing set
-                $redis = app('redis')->connection(config("queue.connections.{$connection}.connection"));
+                $redis = Redis::connection('sentinel-default');
                 $prefix = config('database.redis.options.prefix', '');
                 
                 // Pending jobs in the queue list
