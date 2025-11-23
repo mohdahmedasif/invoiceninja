@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -26,13 +27,30 @@ trait ChartQueries
         $user_filter = $this->is_admin ? '' : 'AND expenses.user_id = '.$this->user->id;
 
         return DB::select("
-            SELECT sum(expenses.amount) as amount,
+            SELECT
+            SUM(CASE
+                WHEN expenses.uses_inclusive_taxes = 0 THEN
+                    expenses.amount +
+                    (COALESCE(expenses.tax_amount1, 0) + COALESCE(expenses.tax_amount2, 0) + COALESCE(expenses.tax_amount3, 0)) +
+                    (
+                        (expenses.amount * COALESCE(expenses.tax_rate1, 0)/100) +
+                        (expenses.amount * COALESCE(expenses.tax_rate2, 0)/100) +
+                        (expenses.amount * COALESCE(expenses.tax_rate3, 0)/100)
+                    )
+                ELSE expenses.amount
+            END) as amount,
             IFNULL(expenses.currency_id, :company_currency) as currency_id
             FROM expenses
+            LEFT JOIN clients
+            ON clients.id = expenses.client_id
+            LEFT JOIN vendors
+            ON vendors.id = expenses.vendor_id
             WHERE expenses.is_deleted = 0
             AND expenses.company_id = :company_id
             AND (expenses.date BETWEEN :start_date AND :end_date)
             {$user_filter}
+            AND (clients.id IS NULL OR clients.is_deleted = 0)
+            AND (vendors.id IS NULL OR vendors.is_deleted = 0)
             GROUP BY currency_id
         ", ['company_currency' => $this->company->settings->currency_id, 'company_id' => $this->company->id, 'start_date' => $start_date, 'end_date' => $end_date]);
     }
@@ -42,18 +60,46 @@ trait ChartQueries
         $user_filter = $this->is_admin ? '' : 'AND expenses.user_id = '.$this->user->id;
 
         return DB::select("
-            SELECT 
+            SELECT
             SUM(
-                CASE 
-                    WHEN expenses.currency_id = :company_currency THEN amount
-                    ELSE expenses.amount * COALESCE(NULLIF(expenses.exchange_rate, 0), 1)
+                CASE
+                    WHEN expenses.currency_id = :company_currency THEN
+                        CASE
+                            WHEN expenses.uses_inclusive_taxes = 0 THEN
+                             expenses.amount +
+                                (COALESCE(expenses.tax_amount1, 0) + COALESCE(expenses.tax_amount2, 0) + COALESCE(expenses.tax_amount3, 0)) +
+                                (
+                                    (expenses.amount * COALESCE(expenses.tax_rate1, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate2, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate3, 0)/100)
+                                )
+                            ELSE expenses.amount
+                        END
+                    ELSE
+                        (CASE
+                            WHEN expenses.uses_inclusive_taxes = 0 THEN
+                                expenses.amount +
+                                (COALESCE(expenses.tax_amount1, 0) + COALESCE(expenses.tax_amount2, 0) + COALESCE(expenses.tax_amount3, 0)) +
+                                (
+                                    (expenses.amount * COALESCE(expenses.tax_rate1, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate2, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate3, 0)/100)
+                                )
+                            ELSE expenses.amount
+                        END) * COALESCE(NULLIF(expenses.exchange_rate, 0), 1)
                 END
             ) AS amount
             FROM expenses
+            LEFT JOIN clients
+            ON clients.id = expenses.client_id
+            LEFT JOIN vendors
+            ON vendors.id = expenses.vendor_id
             WHERE expenses.is_deleted = 0
             AND expenses.company_id = :company_id
             AND (expenses.date BETWEEN :start_date AND :end_date)
             {$user_filter}
+            AND (clients.id IS NULL OR clients.is_deleted = 0)
+            AND (vendors.id IS NULL OR vendors.is_deleted = 0)
         ", ['company_currency' => $this->company->settings->currency_id, 'company_id' => $this->company->id, 'start_date' => $start_date, 'end_date' => $end_date]);
     }
 
@@ -66,16 +112,44 @@ trait ChartQueries
             SELECT
             SUM(
                 CASE 
-                    WHEN expenses.currency_id = :company_currency THEN amount
-                    ELSE expenses.amount * COALESCE(NULLIF(expenses.exchange_rate, 0), 1)
+                    WHEN expenses.currency_id = :company_currency THEN 
+                        CASE 
+                            WHEN expenses.uses_inclusive_taxes = 0 THEN 
+                                expenses.amount + 
+                                (COALESCE(expenses.tax_amount1, 0) + COALESCE(expenses.tax_amount2, 0) + COALESCE(expenses.tax_amount3, 0)) +
+                                (
+                                    (expenses.amount * COALESCE(expenses.tax_rate1, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate2, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate3, 0)/100)
+                                )   
+                            ELSE expenses.amount 
+                        END
+                    ELSE 
+                        (CASE 
+                            WHEN expenses.uses_inclusive_taxes = 0 THEN 
+                                expenses.amount + 
+                                (COALESCE(expenses.tax_amount1, 0) + COALESCE(expenses.tax_amount2, 0) + COALESCE(expenses.tax_amount3, 0)) +
+                                (
+                                    (expenses.amount * COALESCE(expenses.tax_rate1, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate2, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate3, 0)/100)
+                                )   
+                            ELSE expenses.amount 
+                        END) * COALESCE(NULLIF(expenses.exchange_rate, 0), 1)
                 END
             ) AS total,
             expenses.date
             FROM expenses
+            LEFT JOIN clients
+            ON clients.id = expenses.client_id
+            LEFT JOIN vendors
+            ON vendors.id = expenses.vendor_id
             WHERE (expenses.date BETWEEN :start_date AND :end_date)
             AND expenses.company_id = :company_id
             AND expenses.is_deleted = 0
             {$user_filter}
+            AND (clients.id IS NULL OR clients.is_deleted = 0)
+            AND (vendors.id IS NULL OR vendors.is_deleted = 0)
             GROUP BY expenses.date
         ", [
             'company_currency' => $this->company->settings->currency_id,
@@ -93,13 +167,31 @@ trait ChartQueries
 
         return DB::select("
                     SELECT
-                    sum(expenses.amount) as total,
+                    SUM(
+                        CASE 
+                            WHEN expenses.uses_inclusive_taxes = 0 THEN 
+                                expenses.amount + 
+                                (COALESCE(expenses.tax_amount1, 0) + COALESCE(expenses.tax_amount2, 0) + COALESCE(expenses.tax_amount3, 0)) +
+                                (
+                                    (expenses.amount * COALESCE(expenses.tax_rate1, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate2, 0)/100) +
+                                    (expenses.amount * COALESCE(expenses.tax_rate3, 0)/100)
+                                )   
+                            ELSE expenses.amount 
+                        END
+                    ) as total,
                     expenses.date
                     FROM expenses
+                    LEFT JOIN clients
+                    ON clients.id = expenses.client_id
+                    LEFT JOIN vendors
+                    ON vendors.id = expenses.vendor_id
                     WHERE (expenses.date BETWEEN :start_date AND :end_date)
                     AND expenses.company_id = :company_id
                     AND expenses.is_deleted = 0
                     {$user_filter}
+                    AND (clients.id IS NULL OR clients.is_deleted = 0)
+                    AND (vendors.id IS NULL OR vendors.is_deleted = 0)
                     AND IFNULL(expenses.currency_id, :company_currency) = :currency_id
                     GROUP BY expenses.date
                 ", [
@@ -124,6 +216,9 @@ trait ChartQueries
             SELECT sum(payments.amount) as amount,
             IFNULL(payments.currency_id, :company_currency) as currency_id
             FROM payments
+            JOIN clients
+            ON payments.client_id = clients.id
+            AND clients.is_deleted = 0
             WHERE payments.is_deleted = 0
             {$user_filter}
             AND payments.company_id = :company_id
@@ -146,6 +241,9 @@ trait ChartQueries
             SELECT sum((payments.amount - payments.refunded) / COALESCE(NULLIF(payments.exchange_rate, 0), 1)) as amount,
             IFNULL(payments.currency_id, :company_currency) as currency_id
             FROM payments
+            JOIN clients
+            ON payments.client_id = clients.id
+            AND clients.is_deleted = 0
             WHERE payments.company_id = :company_id
             AND payments.is_deleted = 0
             {$user_filter}
@@ -170,6 +268,9 @@ trait ChartQueries
             sum((payments.amount - payments.refunded) * COALESCE(NULLIF(payments.exchange_rate, 0), 1)) as total,
             payments.date
             FROM payments
+            JOIN clients
+            ON payments.client_id = clients.id
+            AND clients.is_deleted = 0
             WHERE payments.company_id = :company_id
             AND payments.is_deleted = 0
             {$user_filter}
@@ -194,8 +295,11 @@ trait ChartQueries
             sum(payments.amount - payments.refunded) as total,
             payments.date
             FROM payments
+            JOIN clients
+            ON payments.client_id = clients.id
             WHERE payments.company_id = :company_id
             AND payments.is_deleted = 0
+            AND clients.is_deleted = 0
             {$user_filter}
             AND payments.status_id IN (4,5,6)
             AND (payments.date BETWEEN :start_date AND :end_date)
@@ -218,7 +322,7 @@ trait ChartQueries
     {
 
         $user_filter = $this->is_admin ? '' : 'AND clients.user_id = '.$this->user->id;
-            //            AND invoices.balance > 0
+        //            AND invoices.balance > 0
 
         return DB::select("
             SELECT
@@ -243,7 +347,7 @@ trait ChartQueries
     {
 
         $user_filter = $this->is_admin ? '' : 'AND clients.user_id = '.$this->user->id;
-//AND invoices.balance > 0
+        //AND invoices.balance > 0
         return DB::select("
             SELECT
             SUM(invoices.balance / COALESCE(NULLIF(invoices.exchange_rate, 0), 1)) as amount,
@@ -256,7 +360,6 @@ trait ChartQueries
             AND clients.is_deleted = 0
             {$user_filter}
             AND invoices.is_deleted = 0
-            
             AND (invoices.date BETWEEN :start_date AND :end_date)
         ", [
          'company_id' => $this->company->id,
@@ -338,6 +441,7 @@ trait ChartQueries
     public function getInvoicesQuery($start_date, $end_date)
     {
         $user_filter = $this->is_admin ? '' : 'AND clients.user_id = '.$this->user->id;
+        // $user_filter = $this->is_admin ? '' : 'AND (clients.user_id = '.$this->user->id.' OR clients.assigned_user_id = '.$this->user->id.')';
 
         //AND invoices.amount > 0 @2024-12-03 - allow negative invoices to be included
 
@@ -376,6 +480,7 @@ trait ChartQueries
             AND invoices.is_deleted = 0
             {$user_filter}
             AND (invoices.date BETWEEN :start_date AND :end_date)
+            GROUP BY invoices.date
         ", [
             'company_id' => $this->company->id,
             'start_date' => $start_date,
@@ -431,6 +536,7 @@ trait ChartQueries
             {$user_filter}
             AND invoices.status_id IN (2,3,4)
             AND (invoices.date BETWEEN :start_date AND :end_date)
+            GROUP BY invoices.date
         ", [
             'company_id' => $this->company->id,
             'start_date' => $start_date,
@@ -464,6 +570,6 @@ trait ChartQueries
             'start_date' => $start_date,
             'end_date' => $end_date,
         ]);
-        
+
     }
 }

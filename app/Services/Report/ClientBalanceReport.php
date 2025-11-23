@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -71,7 +72,7 @@ class ClientBalanceReport extends BaseExport
         $t = app('translator');
         $t->replace(Ninja::transformTranslations($this->company->settings));
 
-        $this->csv = Writer::createFromString();
+        $this->csv = Writer::fromString();
         \League\Csv\CharsetConverter::addTo($this->csv, 'UTF-8', 'UTF-8');
 
         $this->csv->insertOne([]);
@@ -87,13 +88,16 @@ class ClientBalanceReport extends BaseExport
 
         $this->csv->insertOne($this->buildHeader());
 
-        Client::query()
+        $query = Client::query()
             ->where('company_id', $this->company->id)
-            ->where('is_deleted', 0)
-            ->orderBy('balance', 'desc')
+            ->where('is_deleted', 0);
+
+        $query = $this->filterByUserPermissions($query);
+
+        $query->orderBy('balance', 'desc')
             ->cursor()
             ->each(function ($client) {
-
+                /** @var \App\Models\Client $client */
                 $this->csv->insertOne($this->buildRow($client));
 
             });

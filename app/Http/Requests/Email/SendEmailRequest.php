@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -98,6 +99,10 @@ class SendEmailRequest extends Request
             $input['entity'] = "App\Models\\".ucfirst(Str::camel($input['entity']));
         }
 
+        if (isset($input['entity']) && $input['entity'] == 'purchaseOrder') {
+            $this->entity_plural = "purchase_orders";
+        }
+
         if (isset($input['cc_email'])) {
             $input['cc_email'] = collect(explode(",", $input['cc_email']))->map(function ($email) {
                 return trim($email);
@@ -106,6 +111,11 @@ class SendEmailRequest extends Request
             })->slice(0, 4)->toArray();
         }
 
+        if(\App\Utils\Ninja::isHosted() && !$user->account->isPaid()){
+            unset($input['subject']);
+            unset($input['body']);
+            unset($input['cc_email']);
+        }
 
         $this->replace($input);
     }
@@ -125,6 +135,11 @@ class SendEmailRequest extends Request
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
+        if (Ninja::isHosted() && !$user->email_verified_at) {
+            $this->error_message = ctrans('texts.verify_email');
+            return false;
+        }
+
         if (Ninja::isHosted() && !$user->account->account_sms_verified) {
             $this->error_message = ctrans('texts.authorization_sms_failure');
             return false;
@@ -132,6 +147,11 @@ class SendEmailRequest extends Request
 
         if (Ninja::isHosted() && $user->account->emailQuotaExceeded()) {
             $this->error_message = ctrans('texts.email_quota_exceeded_subject');
+            return false;
+        }
+
+        if ($user->hasExactPermission('disable_emails')) {
+            $this->error_message = ctrans('texts.disable_emails_error');
             return false;
         }
 

@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -55,8 +56,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property float $promo_price
  * @property int $registration_required
  * @property int $use_inventory_management
+ * @property string|null $steps
  * @property string|null $optional_product_ids
  * @property string|null $optional_recurring_product_ids
+ * @property string|null $steps
  * @property-read \App\Models\Company $company
  * @property-read mixed $hashed_id
  * @property-read \App\Models\GroupSetting|null $group_settings

@@ -1,17 +1,17 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
 
 namespace App\Http\Controllers;
 
-use App\DataMapper\InvoiceSync;
 use App\Utils\Ninja;
 use App\Models\Quote;
 use App\Models\Credit;
@@ -27,9 +27,9 @@ use App\Transformers\QuoteTransformer;
 use Illuminate\Mail\Mailables\Address;
 use App\Events\Credit\CreditWasEmailed;
 use App\Transformers\CreditTransformer;
+use App\Events\General\EntityWasEmailed;
 use App\Transformers\InvoiceTransformer;
 use App\Http\Requests\Email\SendEmailRequest;
-use App\Jobs\PurchaseOrder\PurchaseOrderEmail;
 use App\Transformers\PurchaseOrderTransformer;
 use App\Transformers\RecurringInvoiceTransformer;
 
@@ -72,6 +72,13 @@ class EmailController extends BaseController
         $user = auth()->user();
         $company = $entity_obj->company;
 
+        /** Force AEAT Submission */
+        if($company->verifactuEnabled() && ($entity_obj instanceof Invoice) && $entity_obj->backup->guid == "") {
+            $entity_obj->invitations()->update(['email_error' => 'primed']); // Flag the invitations as primed for AEAT submission
+            $entity_obj->service()->markSent()->sendVerifactu();
+            return $this->itemResponse($entity_obj->fresh());
+        }
+
         if ($request->cc_email && (Ninja::isSelfHost() || $user->account->isPremium())) {
 
             foreach ($request->cc_email as $email) {
@@ -80,17 +87,27 @@ class EmailController extends BaseController
 
         }
 
-        $entity_obj->invitations->each(function ($invitation) use ($entity_obj, $mo) {
-            if (! $invitation->contact->trashed() && $invitation->contact->email) {
+        $entity_obj->invitations()
+            ->whereHas('contact', function($query) {
+                $query->where(function ($sq){
+                    $sq->whereNotNull('email')
+                    ->orWhere('email', '!=', '');
+                })->where('is_locked', false)
+                ->withoutTrashed();
+            })
+            ->each(function ($invitation) use ($entity_obj, $mo, $template) {
+
                 $entity_obj->service()->markSent()->save();
 
-                $mo->invitation_id = $invitation->id;
-                $mo->client_id = $invitation->contact->client_id ?? null;
-                $mo->vendor_id = $invitation->contact->vendor_id ?? null;
+                    $mo->invitation_id = $invitation->id;
+                    $mo->client_id = $invitation->contact->client_id ?? null;
+                    $mo->vendor_id = $invitation->contact->vendor_id ?? null;
 
-                Email::dispatch($mo, $invitation->company);
-            }
-        });
+                    Email::dispatch($mo, $invitation->company);
+                    
+                    $entity_obj->entityEmailEvent($invitation, $template, $template);
+
+            });
 
         $entity_obj = $entity_obj->fresh();
         $entity_obj->last_sent_date = now();
@@ -102,7 +119,7 @@ class EmailController extends BaseController
             $this->entity_transformer = InvoiceTransformer::class;
 
             if ($entity_obj->invitations->count() >= 1) {
-                $entity_obj->entityEmailEvent($entity_obj->invitations->first(), $template, $template);
+                event(new EntityWasEmailed($entity_obj->invitations->first(), $entity_obj->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null), 'invoice'));
                 $entity_obj->sendEvent(Webhook::EVENT_SENT_INVOICE, "client");
             }
         }
@@ -112,7 +129,7 @@ class EmailController extends BaseController
             $this->entity_transformer = QuoteTransformer::class;
 
             if ($entity_obj->invitations->count() >= 1) {
-                $entity_obj->entityEmailEvent($entity_obj->invitations->first(), $template);
+                event(new EntityWasEmailed($entity_obj->invitations->first(), $entity_obj->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null), 'quote'));
                 $entity_obj->sendEvent(Webhook::EVENT_SENT_QUOTE, "client");
             }
         }
@@ -122,7 +139,7 @@ class EmailController extends BaseController
             $this->entity_transformer = CreditTransformer::class;
 
             if ($entity_obj->invitations->count() >= 1) {
-                event(new CreditWasEmailed($entity_obj->invitations->first(), $entity_obj->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null), 'credit'));
+                event(new EntityWasEmailed($entity_obj->invitations->first(), $entity_obj->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null), 'credit'));
                 $entity_obj->sendEvent(Webhook::EVENT_SENT_CREDIT, "client");
             }
         }
@@ -135,6 +152,13 @@ class EmailController extends BaseController
         if ($entity_obj instanceof PurchaseOrder) {
             $this->entity_type = PurchaseOrder::class;
             $this->entity_transformer = PurchaseOrderTransformer::class;
+
+
+            if ($entity_obj->invitations->count() >= 1) {
+                event(new EntityWasEmailed($entity_obj->invitations->first(), $entity_obj->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null), 'purchase_order'));
+                $entity_obj->sendEvent(Webhook::EVENT_SENT_PURCHASE_ORDER, "client");
+            }
+
         }
 
         return $this->itemResponse($entity_obj->fresh());

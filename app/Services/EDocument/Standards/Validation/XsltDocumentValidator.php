@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -26,7 +27,7 @@ class XsltDocumentValidator
     // private string $peppol_stylesheetx = 'Services/EDocument/Standards/Validation/Peppol/Stylesheets/ubl_stylesheet.xslt';
     // private string $peppol_stylesheet = 'Services/EDocument/Standards/Validation/Peppol/Stylesheets/ci_to_ubl_stylesheet.xslt';
 
-    private array $errors = [];
+    public array $errors = [];
 
     public function __construct(public string $xml_document)
     {
@@ -108,6 +109,18 @@ class XsltDocumentValidator
         }
 
         return $this;
+    }
+
+    public function setXsd(string $xsd): self
+    {
+        $this->ubl_xsd = $xsd;
+
+        return $this;
+    }
+
+    public function getXsd(): string
+    {
+        return $this->ubl_xsd;
     }
 
     public function setStyleSheets(array $stylesheets): self

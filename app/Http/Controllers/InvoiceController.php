@@ -5,47 +5,51 @@
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
 
 namespace App\Http\Controllers;
 
-use App\Events\Invoice\InvoiceWasCreated;
-use App\Events\Invoice\InvoiceWasUpdated;
-use App\Factory\CloneInvoiceFactory;
-use App\Factory\CloneInvoiceToQuoteFactory;
+use App\Utils\Ninja;
+use App\Models\Quote;
+use App\Models\Account;
+use App\Models\Invoice;
+use App\Models\Scheduler;
+use App\Jobs\Cron\AutoBill;
+use Illuminate\Http\Response;
 use App\Factory\InvoiceFactory;
 use App\Filters\InvoiceFilters;
-use App\Http\Requests\Invoice\ActionInvoiceRequest;
+use App\Utils\Traits\MakesHash;
+use App\Factory\SchedulerFactory;
+use App\Jobs\Invoice\ZipInvoices;
+use App\Services\PdfMaker\PdfMerge;
+use Illuminate\Support\Facades\App;
+use App\Factory\CloneInvoiceFactory;
+use App\Jobs\Invoice\BulkInvoiceJob;
+use App\Utils\Traits\SavesDocuments;
+use App\Jobs\Invoice\UpdateReminders;
+use App\Transformers\QuoteTransformer;
+use App\Repositories\InvoiceRepository;
+use Illuminate\Support\Facades\Storage;
+use App\Transformers\InvoiceTransformer;
+use App\Events\Invoice\InvoiceWasCreated;
+use App\Events\Invoice\InvoiceWasUpdated;
+use App\Repositories\SchedulerRepository;
+use App\Services\Template\TemplateAction;
+use App\Factory\CloneInvoiceToQuoteFactory;
 use App\Http\Requests\Invoice\BulkInvoiceRequest;
-use App\Http\Requests\Invoice\CreateInvoiceRequest;
-use App\Http\Requests\Invoice\DestroyInvoiceRequest;
 use App\Http\Requests\Invoice\EditInvoiceRequest;
 use App\Http\Requests\Invoice\ShowInvoiceRequest;
 use App\Http\Requests\Invoice\StoreInvoiceRequest;
+use App\Http\Requests\Invoice\ActionInvoiceRequest;
+use App\Http\Requests\Invoice\CreateInvoiceRequest;
 use App\Http\Requests\Invoice\UpdateInvoiceRequest;
-use App\Http\Requests\Invoice\UpdateReminderRequest;
 use App\Http\Requests\Invoice\UploadInvoiceRequest;
-use App\Jobs\Cron\AutoBill;
-use App\Jobs\Invoice\BulkInvoiceJob;
-use App\Jobs\Invoice\UpdateReminders;
-use App\Jobs\Invoice\ZipInvoices;
-use App\Models\Account;
-use App\Models\Invoice;
-use App\Models\Quote;
-use App\Repositories\InvoiceRepository;
-use App\Services\PdfMaker\PdfMerge;
-use App\Services\Template\TemplateAction;
-use App\Transformers\InvoiceTransformer;
-use App\Transformers\QuoteTransformer;
-use App\Utils\Ninja;
-use App\Utils\Traits\MakesHash;
-use App\Utils\Traits\SavesDocuments;
-use Illuminate\Http\Response;
-use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Storage;
+use App\Http\Requests\Invoice\DestroyInvoiceRequest;
+use App\Http\Requests\Invoice\UpdateReminderRequest;
+use App\Http\Requests\TaskScheduler\PaymentScheduleRequest;
 
 /**
  * Class InvoiceController.
@@ -237,16 +241,8 @@ class InvoiceController extends BaseController
 
         event(new InvoiceWasCreated($invoice, $invoice->company, Ninja::eventVars($user ? $user->id : null)));
 
-        $transaction = [
-            'invoice' => $invoice->transaction_event(),
-            'payment' => [],
-            'client' => $invoice->client->transaction_event(),
-            'credit' => [],
-            'metadata' => [],
-        ];
-
-        // TransactionLog::dispatch(TransactionEvent::INVOICE_UPDATED, $transaction, $invoice->company->db);
-
+        \Illuminate\Support\Facades\Cache::forget($request->lock_key);
+        
         return $this->itemResponse($invoice);
     }
 
@@ -429,7 +425,7 @@ class InvoiceController extends BaseController
 
         event(new InvoiceWasUpdated($invoice, $invoice->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null)));
 
-        return $this->itemResponse($invoice);
+        return $this->itemResponse($invoice->fresh());
     }
 
     /**
@@ -501,20 +497,29 @@ class InvoiceController extends BaseController
         $ids = $request->input('ids');
 
         if (Ninja::isHosted() && (stripos($action, 'email') !== false) && !$user->company()->account->account_sms_verified) {
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
             return response(['message' => 'Please verify your account to send emails.'], 400);
         }
 
-        if (Ninja::isHosted() && (stripos($action, 'email') !== false) && $user->account->emailQuotaExceeded()) {
+        if (Ninja::isHosted() && $user->account->emailQuotaExceeded()) {
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
             return response(['message' => ctrans('texts.email_quota_exceeded_subject')], 400);
         }
 
+        if ($user->hasExactPermission('disable_emails') && (stripos($action, 'email') !== false)) {
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
+            return response(['message' => ctrans('texts.disable_emails_error')], 400);
+        }
+
         if (in_array($request->action, ['auto_bill', 'mark_paid']) && $user->cannot('create', \App\Models\Payment::class)) {
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
             return response(['message' => ctrans('texts.not_authorized'), 'errors' => ['ids' => [ctrans('texts.not_authorized')]]], 422);
         }
 
         $invoices = Invoice::withTrashed()->whereIn('id', $this->transformKeys($ids))->company()->get();
 
         if ($invoices->count() == 0) {
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
             return response()->json(['message' => 'No Invoices Found']);
         }
 
@@ -523,13 +528,15 @@ class InvoiceController extends BaseController
          */
 
         if ($action == 'bulk_download' && $invoices->count() > 1) {
-            $invoices->each(function ($invoice) use ($user) {
+            $invoices->each(function ($invoice) use ($user, $request) {
                 if ($user->cannot('view', $invoice)) {
+                    \Illuminate\Support\Facades\Cache::forget($request->lock_key);
                     return response()->json(['message' => ctrans('text.access_denied')]);
                 }
             });
 
             ZipInvoices::dispatch($invoices->pluck('id'), $invoices->first()->company, auth()->user());
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
 
             return response()->json(['message' => ctrans('texts.sent_message')], 200);
         }
@@ -538,19 +545,44 @@ class InvoiceController extends BaseController
 
             $filename = $invoices->first()->getFileName();
 
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
+
             return response()->streamDownload(function () use ($invoices) {
                 echo $invoices->first()->service()->getInvoicePdf();
             }, $filename, ['Content-Type' => 'application/pdf']);
         }
 
         if ($action == 'bulk_print' && $user->can('view', $invoices->first())) {
-            $paths = $invoices->map(function ($invoice) {
-                return (new \App\Jobs\Entity\CreateRawPdf($invoice->invitations->first()))->handle();
-            });
+            $start = microtime(true);
 
-            return response()->streamDownload(function () use ($paths) {
-                echo $merge = (new PdfMerge($paths->toArray()))->run();
-            }, 'print.pdf', ['Content-Type' => 'application/pdf']);
+            $batch_id = (new \App\Jobs\Invoice\PrintEntityBatch(Invoice::class, $invoices->pluck('id')->toArray(), $user->company()->db))->handle();
+            $batch = \Illuminate\Support\Facades\Bus::findBatch($batch_id);
+            $batch_key = $batch->name;
+
+            $finished = false;
+
+            do {
+                usleep(300000);
+                $batch = \Illuminate\Support\Facades\Bus::findBatch($batch_id);
+                $finished = $batch->finished();
+            } while (!$finished);
+
+            $paths = $invoices->map(function ($invoice) use ($batch_key) {
+                return \Illuminate\Support\Facades\Cache::pull("{$batch_key}-{$invoice->id}");
+            })->filter(function ($value) {
+                return !is_null($value);
+            })->toArray();
+
+            $mergedPdf = (new PdfMerge($paths))->run();
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
+
+            return response()->streamDownload(function () use ($mergedPdf) {
+                echo $mergedPdf;
+            }, 'print.pdf', [
+                'Content-Type' => 'application/pdf',
+                'Cache-Control:' => 'no-cache',
+                'Server-Timing' => (string)(microtime(true) - $start)
+            ]);
         }
 
         if ($action == 'template' && $user->can('view', $invoices->first())) {
@@ -568,6 +600,8 @@ class InvoiceController extends BaseController
                 $request->boolean('send_email')
             );
 
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
+
             return response()->json(['message' => $hash_or_response], 200);
         }
 
@@ -579,20 +613,20 @@ class InvoiceController extends BaseController
                 }
             });
 
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
+
             return $this->listResponse(Invoice::withTrashed()->whereIn('id', $this->transformKeys($ids))->company());
         }
 
         if (in_array($action, ['email','send_email'])) {
 
-            $invoice = $invoices->first();
+            $invoices->filter(function ($invoice) use ($user) {
+                return $user->can('edit', $invoice);
+            })->each(function ($invoice) use ($user, $request) {
+                $invoice->service()->markSent()->sendEmail(email_type: $request->input('email_type', $invoice->calculateTemplate('invoice')));
+            });
 
-            if ($user->can('edit', $invoice)) {
-
-                $template = $request->input('email_type', $invoice->calculateTemplate('invoice'));
-
-                BulkInvoiceJob::dispatch($invoices->pluck('id')->toArray(), $user->company()->db, $template);
-
-            }
+            \Illuminate\Support\Facades\Cache::forget($request->lock_key);
 
             return $this->listResponse(Invoice::withTrashed()->whereIn('id', $this->transformKeys($ids))->company());
 
@@ -607,6 +641,7 @@ class InvoiceController extends BaseController
         });
 
         /* Need to understand which permission are required for the given bulk action ie. view / edit */
+        \Illuminate\Support\Facades\Cache::forget($request->lock_key);
 
         return $this->listResponse(Invoice::withTrashed()->whereIn('id', $this->transformKeys($ids))->company());
     }
@@ -761,7 +796,7 @@ class InvoiceController extends BaseController
                 }
                 break;
             case 'cancel':
-                $invoice = $invoice->service()->handleCancellation()->save();
+                $invoice = $invoice->service()->handleCancellation(request()->input('reason'))->save();
                 if (! $bulk) {
                     $this->itemResponse($invoice);
                 }
@@ -1040,5 +1075,31 @@ class InvoiceController extends BaseController
         UpdateReminders::dispatch($user->company());
 
         return response()->json(['message' => 'Updating reminders'], 200);
+    }
+
+    public function paymentSchedule(PaymentScheduleRequest $request, Invoice $invoice)
+    {
+        $repo = new SchedulerRepository();
+        
+        $repo->save($request->all(), SchedulerFactory::create($invoice->company_id, auth()->user()->id));
+
+        return $this->itemResponse($invoice->fresh());
+
+    }
+
+    public function deletePaymentSchedule(Invoice $invoice)
+    {
+        $repo = new SchedulerRepository();
+
+        $scheduler = Scheduler::where('company_id', $invoice->company_id)
+                                ->where('template', 'payment_schedule')
+                                ->where('parameters->invoice_id', $invoice->hashed_id)
+                                ->first();
+
+        if($scheduler) {
+            $scheduler->forceDelete();
+        }
+
+        return $this->itemResponse($invoice->fresh());
     }
 }

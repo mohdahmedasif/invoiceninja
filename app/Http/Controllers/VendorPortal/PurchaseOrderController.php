@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -123,7 +124,8 @@ class PurchaseOrderController extends Controller
 
         $file = $invitation->purchase_order->service()->getPurchaseOrderPdf();
 
-        $headers = ['Content-Type' => 'application/pdf'];
+        // $headers = ['Content-Type' => 'application/pdf'];
+        $headers = ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline'];
 
         return response()->make($file, 200, $headers);
 

@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -97,5 +98,16 @@ class ClientGatewayToken extends BaseModel
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class)->withTrashed();
+    }
+
+    public function getGatewayAccountName()
+    {
+        $meta = $this->meta;
+
+        if($meta && isset($meta->brand) && isset($meta->last4)) {
+            return $meta->brand . ' **** ' . $meta->last4;
+        }
+
+        return ctrans('texts.bank_transfer') . ' ' . $this->token;
     }
 }

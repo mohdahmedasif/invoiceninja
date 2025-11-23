@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -102,6 +103,7 @@ class TemplateAction implements ShouldQueue
             Expense::class => $resource->with('client'),
             Payment::class => $resource->with('invoices', 'client'),
             Client::class => $resource,
+            Expense::class => $resource->with('client', 'project', 'vendor', 'invoice'),
             default => $resource,
         };
 
@@ -228,7 +230,7 @@ class TemplateAction implements ShouldQueue
 
     public function middleware()
     {
-        return [new WithoutOverlapping("template-{$this->company->company_key}")];
+        return [(new WithoutOverlapping('template-' . $this->company->company_key . $this->entity))->dontRelease()];
     }
 
 }

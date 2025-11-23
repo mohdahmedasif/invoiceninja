@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -32,6 +33,7 @@ use App\Events\Credit\CreditWasCreated;
 use App\Events\Credit\CreditWasUpdated;
 use App\Transformers\CreditTransformer;
 use Illuminate\Support\Facades\Storage;
+use App\Events\General\EntityWasEmailed;
 use App\Services\Template\TemplateAction;
 use App\Http\Requests\Credit\BulkCreditRequest;
 use App\Http\Requests\Credit\EditCreditRequest;
@@ -210,9 +212,41 @@ class CreditController extends BaseController
                          ->triggeredActions($request)
                          ->save();
 
+        /** 2025-09-24
+         * 
+         * Handling invoice reversals needs stricter boundary checks:
+         * 
+         * On the reversal of a paid invoice creates a credit note. However if this credit note is deleted the original payment becomes a dangling record.
+         * 
+         * In order to avoid this, we link the payment to the credit note. This allows us to preserve the relation of the payment to the subsequent credit note.
+         * 
+         * Now on Credit or Payment deletion we can correctly maintain the relation of the payment to the credit note.
+         */
         if ($credit->invoice_id) {
             $credit = $credit->service()->markSent()->save();
-            $credit->client->service()->updatePaidToDate(-1 * $credit->balance)->save();
+            $credit->client->service()->updateBalanceAndPaidToDate(-1 * ($credit->invoice->balance ?? 0), -1 * $credit->balance)->save();
+            
+            $invoice = \App\Models\Invoice::withTrashed()->find($credit->invoice_id);
+            if ($invoice) {
+                $invoice->status_id = Invoice::STATUS_REVERSED;
+                $invoice->save();
+                                    
+                //2025-08-25 after convert to a credit note, we need to delete the payments associated with the invoice.
+                //2025-09-25 this logic is flawed as unlinking the invoice then prevents a valid refund from taking place.
+                // $invoice->payments()->each(function ($p) use ($credit) {
+                //     // $p->pivot->forceDelete();
+                //     $p->invoices()->each(function ($i) use ($credit) {
+                //         // $i->pivot->forceDelete();
+                //         $pivot = $i->pivot;
+                //         $pivot->paymentable_id = $credit->id;
+                //         $pivot->paymentable_type = Credit::class;
+                //         $pivot->save();
+
+                //     });
+                // });
+
+            }
+
         }
 
         event(new CreditWasCreated($credit, $credit->company, Ninja::eventVars($user->id)));
@@ -516,6 +550,14 @@ class CreditController extends BaseController
             return response(['message' => 'Please verify your account to send emails.'], 400);
         }
 
+        if (Ninja::isHosted()  && $user->account->emailQuotaExceeded()) {
+            return response(['message' => ctrans('texts.email_quota_exceeded_subject')], 400);
+        }
+
+        if ($user->hasExactPermission('disable_emails') && (stripos($action, 'email') !== false)) {
+            return response(['message' => ctrans('texts.disable_emails_error')], 400);
+        }
+
         $credits = Credit::withTrashed()
                          ->whereIn('id', $request->ids)
                          ->company()
@@ -542,15 +584,48 @@ class CreditController extends BaseController
         }
 
         if ($action == 'bulk_print' && $user->can('view', $credits->first())) {
-            $paths = $credits->map(function ($credit) {
-                return (new \App\Jobs\Entity\CreateRawPdf($credit->invitations->first()))->handle();
-            });
+            // $paths = $credits->map(function ($credit) {
+            //     return (new \App\Jobs\Entity\CreateRawPdf($credit->invitations->first()))->handle();
+            // });
 
-            $merge = (new PdfMerge($paths->toArray()))->run();
+            // $merge = (new PdfMerge($paths->toArray()))->run();
 
-            return response()->streamDownload(function () use ($merge) {
-                echo($merge);
-            }, 'print.pdf', ['Content-Type' => 'application/pdf']);
+            // return response()->streamDownload(function () use ($merge) {
+            //     echo($merge);
+            // }, 'print.pdf', ['Content-Type' => 'application/pdf']);
+
+
+            $start = microtime(true);
+
+            $batch_id = (new \App\Jobs\Invoice\PrintEntityBatch(Credit::class, $credits->pluck('id')->toArray(), $user->company()->db))->handle();
+            $batch = \Illuminate\Support\Facades\Bus::findBatch($batch_id);
+            $batch_key = $batch->name;
+
+            $finished = false;
+
+            do {
+                usleep(500000);
+                $batch = \Illuminate\Support\Facades\Bus::findBatch($batch_id);
+                $finished = $batch->finished();
+            } while (!$finished);
+
+            $paths = $credits->map(function ($credit) use ($batch_key) {
+                return \Illuminate\Support\Facades\Cache::pull("{$batch_key}-{$credit->id}");
+            })->filter(function ($value) {
+                return !is_null($value);
+            })->toArray();
+
+            $mergedPdf = (new PdfMerge($paths))->run();
+
+            return response()->streamDownload(function () use ($mergedPdf) {
+                echo $mergedPdf;
+            }, 'print.pdf', [
+                'Content-Type' => 'application/pdf',
+                'Cache-Control:' => 'no-cache',
+                'Server-Timing' => (string)(microtime(true) - $start)
+            ]);
+
+
         }
 
 
@@ -640,9 +715,7 @@ class CreditController extends BaseController
             case 'email':
             case 'send_email':
 
-                $credit->invitations->load('contact.client.country', 'credit.client.country', 'credit.company')->each(function ($invitation) use ($credit) {
-                    EmailEntity::dispatch($invitation->withoutRelations(), $credit->company->db, 'credit');
-                });
+                $credit->service()->sendEmail();
 
                 if (! $bulk) {
                     return response()->json(['message' => 'email sent'], 200);

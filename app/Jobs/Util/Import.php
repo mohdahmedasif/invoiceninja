@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -189,7 +190,7 @@ class Import implements ShouldQueue
 
     public function middleware()
     {
-        return [(new WithoutOverlapping($this->company->company_key))];
+        return [(new WithoutOverlapping($this->company->company_key))->dontRelease()];
     }
 
     /**
@@ -1556,8 +1557,6 @@ class Import implements ShouldQueue
                     0,
                     false
                 );
-
-                // $this->saveDocument($uploaded_file, $entity, $is_public = true);
 
                 $document = (new \App\Jobs\Util\UploadFile(
                     $uploaded_file,

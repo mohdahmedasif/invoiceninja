@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -93,6 +94,7 @@ use Laracasts\Presenter\PresentableTrait;
  * @property bool $markdown_enabled
  * @property bool $use_comma_as_decimal_place
  * @property bool $report_include_drafts
+ * @property bool $invoice_task_project_header
  * @property array|null $client_registration_fields
  * @property bool $convert_rate_to_client
  * @property bool $markdown_email_enabled
@@ -122,6 +124,7 @@ use Laracasts\Presenter\PresentableTrait;
  * @property string|null $inbound_mailbox_blacklist
  * @property string|null $e_invoice_certificate_passphrase
  * @property string|null $e_invoice_certificate
+ * @property object|null $origin_tax_data
  * @property int $deleted_at
  * @property string|null $smtp_username
  * @property string|null $smtp_password
@@ -129,11 +132,18 @@ use Laracasts\Presenter\PresentableTrait;
  * @property int|null $smtp_port
  * @property string|null $smtp_encryption
  * @property string|null $smtp_local_domain
+ * @property boolean $invoice_task_item_description
  * @property \App\DataMapper\QuickbooksSettings|null $quickbooks
  * @property boolean $smtp_verify_peer
+ * @property object|null $origin_tax_data
  * @property int|null $legal_entity_id
+ * @property bool $invoice_task_item_description
+ * @property bool $show_task_item_description
+ * @property bool $invoice_task_project_header
  * @property-read \App\Models\Account $account
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Activity> $activities
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Location> $locations
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\VerifactuLog> $verifactu_logs
  * @property-read int|null $activities_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Activity> $all_activities
  * @property-read int|null $all_activities_count
@@ -223,6 +233,7 @@ use Laracasts\Presenter\PresentableTrait;
  * @property-read int|null $users_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Vendor> $vendors
  * @property-read int|null $vendors_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Location> $locations
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Webhook> $webhooks
  * @method static \Illuminate\Database\Eloquent\Builder|Company where($query)
  * @method static \Illuminate\Database\Eloquent\Builder|Company find($query)
@@ -428,6 +439,11 @@ class Company extends BaseModel
         return $this->hasMany(Scheduler::class);
     }
 
+    public function verifactu_logs(): HasMany
+    {
+        return $this->hasMany(VerifactuLog::class)->orderBy('id', 'DESC');
+    }
+
     public function task_schedulers(): HasMany
     {
         return $this->hasMany(Scheduler::class);
@@ -476,6 +492,11 @@ class Company extends BaseModel
     public function client_contacts(): HasMany
     {
         return $this->hasMany(ClientContact::class)->withTrashed();
+    }
+
+    public function locations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Location::class)->withTrashed();
     }
 
     /**
@@ -571,6 +592,18 @@ class Company extends BaseModel
         return $this->hasMany(GroupSetting::class);
     }
 
+    public function backups(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Backup::class, // Target model
+            Activity::class, // Intermediate model
+            'company_id', // Foreign key on activities table
+            'activity_id', // Foreign key on backups table
+            'id', // Local key on companies table
+            'id' // Local key on activities table
+        );
+    }
+
     /**
      * @return HasMany
      */
@@ -637,12 +670,16 @@ class Company extends BaseModel
 
     public function country()
     {
+        return once(function () {   
 
-        /** @var \Illuminate\Support\Collection<\App\Models\Country> */
-        $countries = app('countries');
+            /** @var \Illuminate\Support\Collection<\App\Models\Country> */
+            $countries = app('countries');
+            $country_id = $this->getSetting('country_id');
 
-        return $countries->first(function ($item) {
-            return $item->id == $this->getSetting('country_id');
+            return $countries->first(function ($item) use ($country_id) {
+                    return $item->id == $country_id;
+                });
+
         });
     }
 
@@ -653,14 +690,16 @@ class Company extends BaseModel
 
     public function timezone()
     {
+        return once(function () {
 
-        /** @var \Illuminate\Support\Collection<\App\Models\TimeZone> */
-        $timezones = app('timezones');
+            /** @var \Illuminate\Support\Collection<\App\Models\TimeZone> */
+            $timezones = app('timezones');
 
-        return $timezones->first(function ($item) {
-            return $item->id == $this->settings->timezone_id;
+            return $timezones->first(function ($item) {
+                return $item->id == $this->settings->timezone_id;
+            });
+
         });
-
     }
 
     public function designs()
@@ -685,15 +724,18 @@ class Company extends BaseModel
 
     public function language()
     {
+        return once(function () {
 
-        /** @var \Illuminate\Support\Collection<\App\Models\Language> */
-        $languages = app('languages');
+            /** @var \Illuminate\Support\Collection<\App\Models\Language> */
+            $languages = app('languages');
 
-        $language = $languages->first(function ($item) {
-            return $item->id == $this->settings->language_id;
+            $language = $languages->first(function ($item) {
+                return $item->id == $this->settings->language_id;
+            });
+
+            return $language ?? $languages->first();
+
         });
-
-        return $language ?? $languages->first();
     }
 
     public function getLocale()
@@ -734,12 +776,13 @@ class Company extends BaseModel
 
     public function currency()
     {
+        return once(function () {
+            /** @var \Illuminate\Support\Collection<\App\Models\Currency> */
+            $currencies = app('currencies');
 
-        /** @var \Illuminate\Support\Collection<\App\Models\Currency> */
-        $currencies = app('currencies');
-
-        return $currencies->first(function ($item) {
-            return $item->id == $this->settings->currency_id;
+            return $currencies->first(function ($item) {
+                return $item->id == $this->settings->currency_id;
+            });
         });
     }
 
@@ -865,7 +908,13 @@ class Company extends BaseModel
 
     public function notification(Notification $notification)
     {
-        return new NotificationService($this, $notification);
+        try {
+            return new NotificationService($this, $notification);
+        } catch (\Throwable $th) {
+            nlog("Could not access notification service");
+            nlog($th->getMessage());
+            return null;
+        }
     }
 
     public function routeNotificationForSlack($notification): string
@@ -918,7 +967,7 @@ class Company extends BaseModel
         $timezone = $this->timezone();
 
         date_default_timezone_set('GMT');
-        $date = new \DateTime("now", new \DateTimeZone($timezone->name));
+        $date = new \DateTime("now", new \DateTimeZone($timezone->name ?? 'UTC'));
         $offset = $date->getOffset();
 
         return $offset;
@@ -937,7 +986,7 @@ class Company extends BaseModel
         $timezone = $this->timezone();
 
         date_default_timezone_set('GMT');
-        $date = new \DateTime("now", new \DateTimeZone($timezone->name));
+        $date = new \DateTime("now", new \DateTimeZone($timezone->name ?? 'UTC'));
         $offset -= $date->getOffset();
 
         $offset += ($entity_send_time * 3600);
@@ -952,13 +1001,15 @@ class Company extends BaseModel
 
     public function date_format()
     {
+        return once(function () {
+            /** @var \Illuminate\Support\Collection<\App\Models\DateFormat> */
+            $date_formats = app('date_formats');
+                $date_format = $this->getSetting('date_format_id');
 
-        /** @var \Illuminate\Support\Collection<\App\Models\DateFormat> */
-        $date_formats = app('date_formats');
-
-        return $date_formats->first(function ($item) {
-            return $item->id == $this->getSetting('date_format_id');
-        })->format;
+                return $date_formats->first(function ($item) use ($date_format) {
+                    return $item->id == $date_format;
+                })->format;
+        });
     }
 
     public function getInvoiceCert()
@@ -996,5 +1047,19 @@ class Company extends BaseModel
     public function peppolSendingEnabled(): bool
     {
         return !$this->account->is_flagged && $this->account->e_invoice_quota > 0 && isset($this->legal_entity_id) && isset($this->tax_data->acts_as_sender) && $this->tax_data->acts_as_sender;
+    }
+    
+    /**
+     * verifactuEnabled
+     * 
+     * Returns a flag if the current company is using verifactu as the e-invoice provider
+     *
+     * @return bool
+     */
+    public function verifactuEnabled(): bool
+    {
+        return once(function () {
+            return $this->getSetting('e_invoice_type') == 'VERIFACTU';
+        });
     }
 }

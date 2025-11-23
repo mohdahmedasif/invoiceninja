@@ -1,31 +1,34 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
 
 namespace App\Services\Invoice;
 
-use App\Events\Invoice\InvoiceWasArchived;
-use App\Jobs\EDocument\CreateEDocument;
-use App\Jobs\Entity\CreateRawPdf;
-use App\Jobs\Inventory\AdjustProductInventory;
-use App\Libraries\Currency\Conversion\CurrencyApi;
-use App\Models\CompanyGateway;
+use App\Models\Task;
+use App\Utils\Ninja;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Subscription;
-use App\Models\Task;
-use App\Utils\Ninja;
-use App\Utils\Traits\MakesHash;
+use App\Models\CompanyGateway;
 use Illuminate\Support\Carbon;
+use App\Utils\Traits\MakesHash;
+use App\Jobs\Entity\CreateRawPdf;
+use App\Services\Invoice\LocationData;
+use App\Jobs\EDocument\CreateEDocument;
 use Illuminate\Support\Facades\Storage;
+use App\Events\Invoice\InvoiceWasArchived;
+use App\Jobs\Inventory\AdjustProductInventory;
+use App\Libraries\Currency\Conversion\CurrencyApi;
+use App\Services\EDocument\Standards\Verifactu\SendToAeat;
 
 class InvoiceService
 {
@@ -124,9 +127,11 @@ class InvoiceService
         return $this;
     }
 
-    public function addGatewayFee(CompanyGateway $company_gateway, $gateway_type_id, float $amount)
+    public function addGatewayFee(CompanyGateway $company_gateway, $gateway_type_id, float $amount, string $payment_hash_string)
     {
-        $this->invoice = (new AddGatewayFee($company_gateway, $gateway_type_id, $this->invoice, $amount))->run();
+        $this->removeUnpaidGatewayFees();
+
+        $this->invoice = (new AddGatewayFee($company_gateway, $gateway_type_id, $this->invoice, $amount, $payment_hash_string))->run();
 
         return $this;
     }
@@ -201,7 +206,7 @@ class InvoiceService
         return (new CreateRawPdf($invitation))->handle();
     }
 
-    public function getInvoiceDeliveryNote(Invoice $invoice, \App\Models\ClientContact $contact = null)
+    public function getInvoiceDeliveryNote(Invoice $invoice, ?\App\Models\ClientContact $contact = null)
     {
         return (new GenerateDeliveryNote($invoice, $contact))->run();
     }
@@ -216,9 +221,9 @@ class InvoiceService
         return $this->getEInvoice($contact);
     }
 
-    public function sendEmail($contact = null)
+    public function sendEmail($contact = null, $email_type = 'invoice')
     {
-        $send_email = new SendEmail($this->invoice, null, $contact);
+        $send_email = new SendEmail($this->invoice, $email_type, $contact);
 
         return $send_email->run();
     }
@@ -230,20 +235,23 @@ class InvoiceService
         return $this;
     }
 
-    public function handleCancellation()
+    public function handleCancellation(?string $reason = null)
     {
         $this->removeUnpaidGatewayFees();
 
-        $this->invoice = (new HandleCancellation($this->invoice))->run();
+        $this->invoice = (new HandleCancellation($this->invoice, $reason))->run();
 
         return $this;
     }
 
     public function markDeleted()
     {
-        $this->removeUnpaidGatewayFees();
 
         $this->invoice = (new MarkInvoiceDeleted($this->invoice))->run();
+
+        if ($this->invoice->company->verifactuEnabled() && $this->invoice->backup->guid != '') {
+            $this->cancelVerifactu();
+        }
 
         return $this;
     }
@@ -374,8 +382,25 @@ class InvoiceService
         return $this;
     }
 
-    public function toggleFeesPaid()
+    public function toggleFeesPaid(?string $payment_hash_string = null)
     {
+        if ($payment_hash_string) {
+
+            $this->invoice->line_items = collect($this->invoice->line_items)
+                                                ->map(function ($item) use ($payment_hash_string) {
+                                                    if ($item->type_id == '3' && (($item->unit_code ?? '') == $payment_hash_string)) {
+                                                        $item->type_id = '4';
+                                                    }
+
+                                                    return $item;
+                                                })->toArray();
+
+            $this->deleteEInvoice();
+
+            return $this;
+
+        }
+
         $this->invoice->line_items = collect($this->invoice->line_items)
                                      ->map(function ($item) {
                                          if ($item->type_id == '3') {
@@ -419,11 +444,8 @@ class InvoiceService
 
         $this->invoice->invitations->each(function ($invitation) {
             try {
-                // if (Storage::disk(config('filesystems.default'))->exists($this->invoice->client->e_invoice_filepath($invitation).$this->invoice->getFileName("xml"))) {
                 Storage::disk(config('filesystems.default'))->delete($this->invoice->client->e_document_filepath($invitation).$this->invoice->getFileName("xml"));
-                // }
 
-                // if (Ninja::isHosted() && Storage::disk('public')->exists($this->invoice->client->e_invoice_filepath($invitation).$this->invoice->getFileName("xml"))) {
                 if (Ninja::isHosted()) {
                     Storage::disk('public')->delete($this->invoice->client->e_document_filepath($invitation).$this->invoice->getFileName("xml"));
                 }
@@ -468,7 +490,7 @@ class InvoiceService
             ->ledger()
             ->updateInvoiceBalance($adjustment * -1, 'Adjustment for removing gateway fee');
 
-            $this->invoice->client->service()->calculateBalance();
+            $this->invoice->client->service()->updateBalance($adjustment * -1);
 
         }
 
@@ -544,10 +566,22 @@ class InvoiceService
             return $item;
         });
 
-        Task::query()->whereIn('id', $tasks->pluck('task_id'))->update(['invoice_id' => $this->invoice->id]);
-        Expense::query()->whereIn('id', $tasks->pluck('expense_id'))->update(['invoice_id' => $this->invoice->id]);
+        Task::query()->withTrashed()->whereIn('id', $tasks->pluck('task_id'))->update(['invoice_id' => $this->invoice->id]);
+        Expense::query()->withTrashed()->whereIn('id', $tasks->pluck('expense_id'))->update(['invoice_id' => $this->invoice->id]);
 
         return $this;
+    }
+
+    public function unlockDocuments(): self
+    {
+
+        //2025-02-20 ** Feature to allow documents to be visible / attachable after payment **
+        if ($this->invoice->status_id == Invoice::STATUS_PAID && $this->invoice->client->getSetting('unlock_invoice_documents_after_payment')) {
+            $this->invoice->documents()->update(['is_public' => true]);
+        }
+
+        return $this;
+
     }
 
     public function fillDefaults(bool $is_recurring = false)
@@ -586,6 +620,11 @@ class InvoiceService
         }
 
         return $this;
+    }
+
+    public function location(): array
+    {
+        return (new LocationData($this->invoice))->run();
     }
 
     public function workFlow()
@@ -637,6 +676,108 @@ class InvoiceService
 
         return $this;
 
+    }
+
+    /**
+     * sendVerifactu
+     *
+     * @return self
+     */
+    public function sendVerifactu(): self
+    {
+        SendToAeat::dispatch($this->invoice->id, $this->invoice->company, 'create');
+
+        return $this;
+    }
+
+    /**
+     * cancelVerifactu
+     *
+     * @return self
+     */
+    public function cancelVerifactu(): self
+    {
+        SendToAeat::dispatch($this->invoice->id, $this->invoice->company, 'cancel');
+
+        return $this;
+    }
+
+    /**
+     * Handles all requirements for verifactu saves
+     *
+     * @param  array $invoice_array
+     * @param  bool $new_model
+     * @return self
+     */
+    public function modifyVerifactuWorkflow(array $invoice_array, bool $new_model): self
+    {
+
+        /**
+         * I need to perform some checks here to ensure that this invoice MUST be sent via AEAT,
+         * in some cases we DO NOT send into AEAT, these are:
+         *
+         * - Sales to foreign consumers
+         *
+         */
+        /** New Invoice - F1 Type */
+        if (empty($this->invoice->client->vat_number) || !in_array($this->invoice->client->country->iso_3166_2, (new \App\DataMapper\Tax\BaseRule())->eu_country_codes)) {
+
+            $this->invoice->backup->guid = 'exempt';
+            $this->invoice->saveQuietly();
+            return $this;
+        } elseif ($new_model && $this->invoice->amount >= 0) {
+            $this->invoice->backup->document_type = 'F1';
+            $this->invoice->backup->adjustable_amount = (new \App\Services\EDocument\Standards\Verifactu($this->invoice))->run()->registro_alta->calc->getTotal();
+            $this->invoice->backup->parent_invoice_number = $this->invoice->number;
+            $this->invoice->saveQuietly();
+        } elseif (isset($invoice_array['modified_invoice_id'])) {
+            $document_type = 'R2'; // <- Default to R2 type
+
+            /** Was it a partial or FULL rectification? */
+            $modified_invoice = Invoice::withTrashed()->find($this->decodePrimaryKey($invoice_array['modified_invoice_id']));
+
+            if (!$modified_invoice) {
+                throw new \Exception('Modified invoice not found');
+            }
+
+            if (\App\Utils\BcMath::lessThan(abs($this->invoice->amount), $modified_invoice->amount)) {
+                $document_type = 'R1'; // <- If The adjustment amount is less than the original invoice amount, we are doing a partial rectification
+            }
+
+            $modified_invoice->backup->child_invoice_ids->push($this->invoice->hashed_id);
+
+            if (isset($invoice_array['reason'])) {
+                $this->invoice->backup->notes = $invoice_array['reason'];
+            }
+
+            $modified_invoice->save();
+
+            $this->markSent();
+            //Update the client balance by the delta amount from the previous invoice to this one.
+            $this->invoice->backup->parent_invoice_id = $modified_invoice->hashed_id;
+            $this->invoice->backup->document_type = $document_type;
+            // $this->invoice->backup->adjustable_amount = $this->invoice->amount; // <- Amount available to be adjusted
+
+            $this->invoice->backup->adjustable_amount = (new \App\Services\EDocument\Standards\Verifactu($this->invoice))->run()->registro_alta->calc->getTotal();
+            $this->invoice->backup->parent_invoice_number = $modified_invoice->number;
+            $this->invoice->saveQuietly();
+
+            $this->invoice->client->service()->updateBalance(round($this->invoice->amount, 2));
+            $this->sendVerifactu();
+
+            $child_invoice_amounts = Invoice::withTrashed()
+                                        ->whereIn('id', $this->transformKeys($modified_invoice->backup->child_invoice_ids->toArray()))
+                                        ->get()
+                                        ->sum('backup.adjustable_amount');
+
+            //@todo verifactu - this won't be accurate as the invoice->amount will be the ex IPRF amount. modified->amount may not have the correct totals due to IRPF.
+            if (\App\Utils\BcMath::greaterThan(abs($child_invoice_amounts), $modified_invoice->amount)) {
+                $modified_invoice->status_id = Invoice::STATUS_CANCELLED;
+                $modified_invoice->saveQuietly();
+            }
+        }
+
+        return $this;
     }
 
     /**

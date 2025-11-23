@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
@@ -14,15 +15,18 @@ namespace Tests\Unit;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\MockAccountData;
 use Tests\TestCase;
+use Illuminate\Support\Facades\Artisan;
 
 /**
- * 
+ *
  *  App\Services\Invoice\AutoBillInvoice
  */
 class AutoBillInvoiceTest extends TestCase
 {
     use DatabaseTransactions;
     use MockAccountData;
+
+    public $faker;
 
     protected function setUp(): void
     {

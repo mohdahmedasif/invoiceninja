@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
@@ -86,7 +87,7 @@ class PurchaseOrderTest extends TestCase
 
         $activities = $arr['data']['activities'];
 
-        foreach($activities as $activity) {
+        foreach ($activities as $activity) {
             $this->assertTrue(count($activity['history']) >= 1);
         }
 
@@ -101,14 +102,6 @@ class PurchaseOrderTest extends TestCase
             'vendor_id' => $this->vendor->id,
         ]);
 
-        // PurchaseOrderInvitation::factory()->create([
-        //     'user_id' => $this->user->id,
-        //     'company_id' => $this->company->id,
-        //     'vendor_contact_id' => $this->vendor->contacts()->first()->id,
-        //     'purchase_order_id' => $po->id,
-        // ]);
-
-
         $po->service()->createInvitations()->save();
 
         $i = $po->invitations->first();
@@ -121,8 +114,9 @@ class PurchaseOrderTest extends TestCase
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
-        ])->post("/api/v1/purchase_orders/bulk", $data)
-        ->assertStatus(200);
+        ])->postJson("/api/v1/purchase_orders/bulk", $data);
+
+        $response->assertStatus(200);
 
 
         $data = [
@@ -133,8 +127,9 @@ class PurchaseOrderTest extends TestCase
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
-        ])->post("/api/v1/purchase_orders/bulk", $data)
-        ->assertStatus(200);
+        ])->postJson("/api/v1/purchase_orders/bulk", $data);
+
+        $response->assertStatus(200);
 
         $data = [
             'ids' => [$po->hashed_id],

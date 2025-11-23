@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -69,9 +70,11 @@ class ProductSalesReportRequest extends Request
             $input['end_date'] = null;
         }
 
-        if (array_key_exists('client_id', $input) && strlen($input['client_id']) >= 1) {
+        if (array_key_exists('client_id', $input) && strlen($input['client_id'] ?? '') > 1) {
             $input['client_id'] = $this->decodePrimaryKey($input['client_id']);
         }
+        
+        $input['user_id'] = auth()->user()->id;
 
         $this->replace($input);
     }
@@ -88,7 +91,7 @@ class ProductSalesReportRequest extends Request
             return false;
         }
 
-        return $user->isAdmin() || $user->hasPermission('view_reports');
+        return $user->isAdmin() || ($user->hasPermission('view_all') && $user->hasPermission('view_reports'));
 
     }
 

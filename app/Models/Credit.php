@@ -1,18 +1,20 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
 
 namespace App\Models;
 
+use App\Utils\Ninja;
 use App\Utils\Number;
-use Laravel\Scout\Searchable;
+use Elastic\ScoutDriverPlus\Searchable;
 use Illuminate\Support\Carbon;
 use App\Utils\Traits\MakesHash;
 use App\Helpers\Invoice\InvoiceSum;
@@ -20,6 +22,7 @@ use Illuminate\Support\Facades\App;
 use App\Utils\Traits\MakesReminders;
 use App\Services\Credit\CreditService;
 use App\Services\Ledger\LedgerService;
+use App\Events\Credit\CreditWasEmailed;
 use App\Utils\Traits\MakesInvoiceValues;
 use Laracasts\Presenter\PresentableTrait;
 use App\Models\Presenters\CreditPresenter;
@@ -44,6 +47,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $number
  * @property float $discount
  * @property bool $is_amount_discount
+ * @property bool $auto_bill_enabled
  * @property string|null $po_number
  * @property string|null $date
  * @property string|null $last_sent_date
@@ -89,7 +93,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $reminder2_sent
  * @property string|null $reminder3_sent
  * @property string|null $reminder_last_sent
+ * @property object|null $tax_data
+ * @property object|null $e_invoice
+ * @property int|null $location_id
  * @property float $paid_to_date
+ * @property int|null $location_id
+ * @property object|null $e_invoice
+ * @property object|null $tax_data
  * @property int|null $subscription_id
  * @property \Illuminate\Database\Eloquent\Collection<int, \App\Models\Activity> $activities
  * @property int|null $activities_count
@@ -115,7 +125,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property \App\Models\User $user
  * @property \App\Models\Client $client
  * @property \App\Models\Vendor|null $vendor
+ * @property-read \App\Models\Location|null $location
  * @property-read mixed $pivot
+ * @property-read \App\Models\Location|null $location
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Activity> $activities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CompanyLedger> $company_ledger
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Document> $documents
@@ -135,7 +147,17 @@ class Credit extends BaseModel
     use MakesInvoiceValues;
     use MakesReminders;
     use Searchable;
-    
+
+    /**
+     * Get the index name for the model.
+     *
+     * @return string
+     */
+    public function searchableAs(): string
+    {
+        return 'credits_v2';
+    }
+
     protected $presenter = CreditPresenter::class;
 
     protected $fillable = [
@@ -173,6 +195,7 @@ class Credit extends BaseModel
         'exchange_rate',
         'subscription_id',
         'vendor_id',
+        'location_id',
     ];
 
     protected $casts = [
@@ -202,11 +225,11 @@ class Credit extends BaseModel
         App::setLocale($locale);
 
         return [
-            'id' => $this->id,
+            'id' => $this->company->db.":".$this->id,
             'name' => ctrans('texts.credit') . " " . $this->number . " | " . $this->client->present()->name() .  ' | ' . Number::formatMoney($this->amount, $this->company) . ' | ' . $this->translateDate($this->date, $this->company->date_format(), $locale),
             'hashed_id' => $this->hashed_id,
-            'number' => $this->number,
-            'is_deleted' => $this->is_deleted,
+            'number' => (string)$this->number,
+            'is_deleted' => (bool)$this->is_deleted,
             'amount' => (float) $this->amount,
             'balance' => (float) $this->balance,
             'due_date' => $this->due_date,
@@ -222,7 +245,7 @@ class Credit extends BaseModel
 
     public function getScoutKey()
     {
-        return $this->hashed_id;
+        return $this->company->db.":".$this->id;
     }
 
     public function getEntityType()
@@ -248,6 +271,11 @@ class Credit extends BaseModel
     public function assigned_user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id', 'id')->withTrashed();
+    }
+
+    public function location(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Location::class)->withTrashed();
     }
 
     public function vendor(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -295,7 +323,7 @@ class Credit extends BaseModel
      */
     public function invoice(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(Invoice::class);
+        return $this->belongsTo(Invoice::class)->withTrashed();
     }
 
     /**
@@ -398,18 +426,6 @@ class Credit extends BaseModel
         });
     }
 
-    public function transaction_event()
-    {
-        $credit = $this->fresh();
-
-        return [
-            'credit_id' => $credit->id,
-            'credit_amount' => $credit->amount ?: 0,
-            'credit_balance' => $credit->balance ?: 0,
-            'credit_status' => $credit->status_id ?: 1,
-        ];
-    }
-
     public function translate_entity(): string
     {
         return ctrans('texts.credit');
@@ -428,6 +444,26 @@ class Credit extends BaseModel
                 return ctrans('texts.applied');
             default:
                 return ctrans('texts.sent');
+        }
+    }
+
+    /**
+     * entityEmailEvent
+     *
+     * Translates the email type into an activity + notification
+     * that matches.
+     */
+    public function entityEmailEvent($invitation, $reminder_template)
+    {
+
+        switch ($reminder_template) {
+            case 'credit':
+                event(new CreditWasEmailed($invitation, $invitation->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null), $reminder_template));
+                break;
+
+            default:
+                // code...
+                break;
         }
     }
 }

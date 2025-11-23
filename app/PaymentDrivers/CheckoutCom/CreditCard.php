@@ -5,7 +5,7 @@
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -59,7 +59,7 @@ class CreditCard implements MethodInterface, LivewireMethodInterface
     public function authorizeView($data)
     {
         $data['gateway'] = $this->checkout;
-
+        $data['cardholder_name'] = auth()->guard('contact')->user()->present()->name() ?? '';
         return render('gateways.checkout.credit_card.authorize', $data);
     }
 
@@ -102,7 +102,7 @@ class CreditCard implements MethodInterface, LivewireMethodInterface
         try {
             $response = $this->checkout->gateway->getPaymentsClient()->requestPayment($request);
 
-            if ($response['approved'] && $response['status'] === 'Authorized') {
+            if (isset($response['approved']) && $response['status'] === 'Authorized') {
                 $payment_meta = new \stdClass();
                 $payment_meta->exp_month = (string) $response['source']['expiry_month'];
                 $payment_meta->exp_year = (string) $response['source']['expiry_year'];
@@ -150,7 +150,8 @@ class CreditCard implements MethodInterface, LivewireMethodInterface
         $data['value'] = $this->checkout->convertToCheckoutAmount($data['total']['amount_with_fee'], $this->checkout->client->getCurrencyCode());
         $data['raw_value'] = $data['total']['amount_with_fee'];
         $data['customer_email'] = $this->checkout->client->present()->email();
-
+        $data['cardholder_name'] = auth()->guard('contact')->user()->present()->name() ?? '';
+        
         return $data;
     }
 

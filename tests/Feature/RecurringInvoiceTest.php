@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
@@ -33,7 +34,7 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 /**
- * 
+ *
  *  App\Http\Controllers\RecurringInvoiceController
  */
 class RecurringInvoiceTest extends TestCase
@@ -59,6 +60,36 @@ class RecurringInvoiceTest extends TestCase
         );
 
         $this->makeTestData();
+    }
+
+    public function testUniqueNumber()
+    {
+
+        $data = [
+            'client_id' => $this->client->hashed_id,
+            'frequency_id' => 5,
+            'next_send_date' => now()->addMonth()->format('Y-m-d'),
+        ];
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->token,
+        ])->postJson('/api/v1/recurring_invoices', $data);
+
+        $response->assertStatus(200);
+
+        $arr = $response->json();
+
+        $this->assertNotNull($arr['data']['number']);
+
+        $data['number'] = $arr['data']['number'];
+
+        $response = $this->withHeaders([
+            'X-API-SECRET' => config('ninja.api_secret'),
+            'X-API-TOKEN' => $this->token,
+        ])->postJson('/api/v1/recurring_invoices', $data)
+        ->assertStatus(422);
+
     }
 
     public function testBulkUpdatesTaxes()
@@ -92,7 +123,7 @@ class RecurringInvoiceTest extends TestCase
         $response->assertStatus(200);
 
 
-        $ri->cursor()->each(function ($e){
+        $ri->cursor()->each(function ($e) {
             $this->assertEquals('GST', $e->tax_name1);
             $this->assertEquals(10, $e->tax_rate1);
         });
@@ -115,7 +146,7 @@ class RecurringInvoiceTest extends TestCase
             $this->assertEquals('CUSTOMCUSTOM123', $e->custom_value1);
         });
 
-      
+
         $data = [
             'action' => 'bulk_update',
             'ids' => $ri->get()->pluck('hashed_id'),

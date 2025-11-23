@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -37,7 +38,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $description
  * @property string|null $participant
  * @property string|null $participant_name
- * @property string $invoice_ids
+ * @property string|null $invoice_ids
  * @property string|null $expense_id
  * @property int|null $vendor_id
  * @property int $status_id
@@ -89,7 +90,8 @@ class BankTransaction extends BaseModel
         'vendor_id',
         'amount',
         'participant',
-        'participant_name'
+        'participant_name',
+        'currency_code'
     ];
 
 

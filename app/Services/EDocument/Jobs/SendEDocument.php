@@ -1,26 +1,31 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
 
 namespace App\Services\EDocument\Jobs;
 
-use App\Services\Email\Email;
-use App\Services\Email\EmailObject;
+use Mail;
 use App\Utils\Ninja;
 use App\Models\Invoice;
-use App\Libraries\MultiDB;
 use App\Models\Activity;
+use App\Models\SystemLog;
+use App\Libraries\MultiDB;
 use App\Models\EInvoicingLog;
+use App\Services\Email\Email;
 use Illuminate\Bus\Queueable;
-use Illuminate\Support\Facades\Cache;
+use App\Jobs\Util\SystemLogger;
+use App\Services\Email\EmailObject;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -28,8 +33,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use App\Services\EDocument\Standards\Peppol;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use App\Services\EDocument\Gateway\Storecove\Storecove;
-use Mail;
-use Illuminate\Mail\Mailables\Address;
 
 class SendEDocument implements ShouldQueue
 {
@@ -59,7 +62,7 @@ class SendEDocument implements ShouldQueue
 
         $model = $this->entity::withTrashed()->find($this->id);
 
-        if(isset($model->backup->guid) && is_string($model->backup->guid)){
+        if (isset($model->backup->guid) && is_string($model->backup->guid) && strlen($model->backup->guid) > 3) {
             nlog("already sent!");
             return;
         }
@@ -68,6 +71,8 @@ class SendEDocument implements ShouldQueue
             nlog("Bad Actor");
             return; //Bad Actor present.
         }
+
+        $model = $model->service()->markSent()->save();
 
         /** Concrete implementation current linked to Storecove only */
         $p = new Peppol($model);
@@ -100,13 +105,14 @@ class SendEDocument implements ShouldQueue
             $r = Http::withHeaders([...$this->getHeaders(), 'X-EInvoice-Token' => $model->company->account->e_invoicing_token])
                 ->post(config('ninja.hosted_ninja_url')."/api/einvoice/submission", $payload);
 
-            if ($r->hasHeader('X-EINVOICE-QUOTA')) {
-                $account = $model->company->account;
-                $account->e_invoice_quota = (int) $r->header('X-EINVOICE-QUOTA');
-                $account->save();
-            }
-
             if ($r->successful()) {
+
+                if ($r->hasHeader('X-EINVOICE-QUOTA')) {
+                    $account = $model->company->account;
+                    $account->e_invoice_quota = (int) $r->header('X-EINVOICE-QUOTA');
+                    $account->save();
+                }
+
                 nlog("Model {$model->number} was successfully sent for third party processing via hosted Invoice Ninja");
                 $data = $r->json();
                 return $this->writeActivity($model, Activity::EINVOICE_DELIVERY_SUCCESS, $data['guid']);
@@ -115,6 +121,16 @@ class SendEDocument implements ShouldQueue
             if ($r->failed()) {
                 nlog("Model {$model->number} failed to be accepted by invoice ninja, error follows:");
                 nlog($r->json());
+                (
+                    new SystemLogger(
+                        $r->json(),
+                        SystemLog::CATEGORY_PEPPOL,
+                        SystemLog::EVENT_PEPPOL_FAILURE,
+                        SystemLog::TYPE_PEPPOL_SEND,
+                        $model->client,
+                        $model->company
+                    )
+                )->handle();
                 $this->writeActivity($model, Activity::EINVOICE_DELIVERY_FAILURE, data_get($r->json(), 'errors.0.details', 'Unhandled error, check logs'));
             }
 
@@ -214,11 +230,11 @@ class SendEDocument implements ShouldQueue
 
         $activity->save();
 
-        if($activity_id == Activity::EINVOICE_DELIVERY_SUCCESS){
+        if ($activity_id == Activity::EINVOICE_DELIVERY_SUCCESS) {
 
-            $std = new \stdClass();
-            $std->guid = str_replace('"', '', $notes);
-            $model->backup = $std;
+            // $backup = ($model->backup && is_object($model->backup)) ? $model->backup : new \stdClass();
+            // $backup->guid = str_replace('"', '', $notes);
+            $model->backup->guid = str_replace('"', '', $notes);
             $model->saveQuietly();
 
         }
@@ -246,11 +262,11 @@ class SendEDocument implements ShouldQueue
             nlog($exception->getMessage());
         }
 
-        config(['queue.failed.driver' => null]);
+        // config(['queue.failed.driver' => null]);
     }
 
     public function middleware()
     {
-        return [new WithoutOverlapping($this->entity.$this->id.$this->db)];
+        return [(new WithoutOverlapping($this->entity.$this->id.$this->db))->releaseAfter(60)->expireAfter(60)];
     }
 }

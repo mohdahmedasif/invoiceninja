@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -50,6 +51,9 @@ class ProfitLossRequest extends Request
             $input['date_range'] = 'all';
         }
 
+        $input['user_id'] = auth()->user()->id;
+
+        
         $this->replace($input);
     }
 
@@ -65,7 +69,7 @@ class ProfitLossRequest extends Request
             return false;
         }
 
-        return $user->isAdmin() || $user->hasPermission('view_reports');
+        return $user->isAdmin() || ($user->hasPermission('view_all') && $user->hasPermission('view_reports'));
 
     }
 

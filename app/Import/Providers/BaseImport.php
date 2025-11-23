@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -83,7 +84,7 @@ class BaseImport
             )
             : null;
 
-        auth()->login($this->company->owner(), true);
+        auth()->login($this->company->owner(), false);
 
         /** @var \App\Models\User $user */
         $user = auth()->user();
@@ -93,9 +94,6 @@ class BaseImport
 
     public function getCsvData($entity_type)
     {
-        if (! ini_get('auto_detect_line_endings')) {
-            ini_set('auto_detect_line_endings', '1');
-        }
 
         /** @var string $base64_encoded_csv */
         $base64_encoded_csv = Cache::get($this->hash.'-'.$entity_type);
@@ -107,7 +105,7 @@ class BaseImport
         nlog("found {$entity_type}");
 
         $csv = base64_decode($base64_encoded_csv);
-        $csv = mb_convert_encoding($csv, 'UTF-8', 'UTF-8');
+        // $csv = mb_convert_encoding($csv, 'UTF-8', 'UTF-8');
 
         $csv = Reader::createFromString($csv);
         $csvdelimiter = self::detectDelimiter($csv);
@@ -196,8 +194,14 @@ class BaseImport
 
     public function groupClients($csvData, $key)
     {
-        if (!$key || !isset($csvData[0][$key])) {
-            return $csvData;
+        if (!($key && isset($csvData[0][$key]))) {
+            // Transform the flat array to match the expected grouped structure
+            // Each row becomes its own group to maintain consistency
+            $grouped = [];
+            foreach ($csvData as $index => $item) {
+                $grouped[$index] = [$item];
+            }
+            return $grouped;
         }
 
         $grouped = [];
@@ -218,12 +222,15 @@ class BaseImport
 
         return $grouped;
 
-
     }
 
     private function groupInvoices($csvData, $key)
     {
         if (! $key) {
+            return $csvData;
+        }
+
+        if(is_array($csvData) && !isset($csvData[0][$key])) {
             return $csvData;
         }
 
@@ -501,8 +508,6 @@ class BaseImport
 
         $tasks = $this->groupTasks($tasks, $task_number_key);
 
-        nlog($tasks);
-
         foreach ($tasks as $raw_task) {
             $task_data = [];
 
@@ -650,7 +655,10 @@ class BaseImport
                                 $invoice_data['payments'] as $payment_data
                             ) {
 
-                                if ($payment_data['amount'] == 0 && $invoice_data['status_id'] == 4) {
+                                if($invoice->status_id == \App\Models\Invoice::STATUS_DRAFT)
+                                    continue;
+
+                                if ($payment_data['amount'] == 0 && $invoice->status_id == \App\Models\Invoice::STATUS_PAID) {
                                     $payment_data['amount'] = $invoice->amount;
                                 }
 
@@ -665,7 +673,8 @@ class BaseImport
                                 ];
 
                                 /* Make sure we don't apply any payments to invoices with a Zero Amount*/
-                                if ($invoice->amount > 0 && $payment_data['amount'] > 0) {
+                                // if ($invoice->amount > 0 && $payment_data['amount'] > 0) {
+                                if ($invoice->amount > 0) {
 
                                     $payment = $payment_repository->save(
                                         $payment_data,
@@ -743,6 +752,7 @@ class BaseImport
         $invoice = $invoice
             ->service()
             ->markSent()
+            ->fillDefaults()
             ->save();
 
         if ($invoice->status_id <= Invoice::STATUS_SENT && $invoice->amount > 0) {
@@ -851,6 +861,11 @@ class BaseImport
                     if (! empty($quote_data['status_id'])) {
                         $quote->status_id = $quote_data['status_id'];
                     }
+                    
+                    if (array_key_exists('payments', $quote_data)) {
+                        unset($quote_data['payments']);
+                    }
+
                     $quote_repository->save($quote_data, $quote);
 
                     $count++;
@@ -964,9 +979,15 @@ class BaseImport
 
             $diff = array_diff($key_keys, $row_keys);
 
-            if (!empty($diff)) {
+            if (count($key_keys) > count($row_keys)) {
+                // Truncate key_keys to match the length of row_keys
+                $key_keys = array_slice($key_keys, 0, count($row_keys));
+                // Rebuild the $keys array with only the kept columns
+                $keys = array_intersect_key($keys, array_flip($key_keys));
+            } elseif (!empty($diff)) {
                 return false;
             }
+
             /** 12-04-2024 If we do not have matching keys - then this row import is _not_ valid */
 
             return array_combine($keys, array_intersect_key($row, $keys));

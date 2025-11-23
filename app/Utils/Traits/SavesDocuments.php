@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -52,8 +53,10 @@ trait SavesDocuments
         $entity->touch();
     }
 
-    public function saveDocument($document, $entity, $is_public = true)
+    public function saveDocument($document, $entity, $force_save = false)
     {
+        $is_public = true;
+        
         if ($entity instanceof Company) {
             $account = $entity->account;
             $company = $entity;
@@ -64,7 +67,7 @@ trait SavesDocuments
             $user = $entity->user;
         }
 
-        if (! $account->hasFeature(Account::FEATURE_DOCUMENTS)) {
+        if (! $force_save && ! $account->hasFeature(Account::FEATURE_DOCUMENTS)) {
             return false;
         }
 

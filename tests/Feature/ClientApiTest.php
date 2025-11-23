@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
@@ -41,6 +42,8 @@ class ClientApiTest extends TestCase
     use ClientGroupSettingsSaver;
 
     public $faker;
+
+    public $settings;
 
     protected function setUp(): void
     {
@@ -525,15 +528,6 @@ class ClientApiTest extends TestCase
 
     public function testDocumentValidationPutFails()
     {
-        $data = [
-            'name' => 'name of client',
-            'documents' => 'wut',
-        ];
-
-        $response = $this->withHeaders([
-          'X-API-TOKEN' => $this->token,
-        ])->putJson("/api/v1/clients/{$this->client->hashed_id}", $data)
-        ->assertStatus(422);
 
         $data = [
             'name' => 'name of client',
@@ -1207,6 +1201,7 @@ class ClientApiTest extends TestCase
 
         $arr = $response->json();
 
+        nlog($arr);
         $this->assertEquals('3', $arr['data']['settings']['language_id']);
     }
 

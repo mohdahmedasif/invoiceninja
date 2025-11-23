@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
@@ -225,7 +226,7 @@ class PdfConfiguration
             $this->entity_design_id = 'purchase_order_design_id';
             $this->settings = $this->vendor->company->settings;
             $this->settings_object = $this->vendor;
-            $this->client = null;
+            $this->client = $this->entity->client ?? null;
             $this->country = $this->vendor->country ?? $this->vendor->company->country();
         } else {
             throw new \Exception('Unable to resolve entity', 500);
@@ -277,7 +278,7 @@ class PdfConfiguration
 
         $design_id = $this->entity->design_id ?: $this->decodePrimaryKey($this->settings_object->getSetting($this->entity_design_id));
 
-        $this->design = Design::withTrashed()->find($design_id) ?? Design::withTrashed()->find(2);
+        $this->design = Design::withTrashed()->find($design_id ?? 2);
 
         return $this;
     }
@@ -393,22 +394,11 @@ class PdfConfiguration
         /* 08-01-2022 allow increased precision for unit price*/
         $v = rtrim(sprintf('%f', $value), '0');
         $parts = explode('.', $v);
-        
-        /** 2024-12-09 improve resolution of unit cost precision */
-        if (strlen($parts[1] ?? '') > 2) 
-            $precision = strlen($parts[1]);
 
-        /* 08-02-2023 special if block to render $0.5 to $0.50*/
-        // if ($v < 1 && strlen($v) == 3) {
-        //     $precision = 2;
-        // } elseif ($v < 1) {
-        //     $precision = strlen($v) - strrpos($v, '.') - 1;
-        // } elseif ($v > 1) {
-        //     $precision = strlen($v) - strrpos($v, '.') - 1;
-        // }
-        // if (is_array($parts) && $parts[0] != 0) {
-        //     $precision = 2;
-        // }
+        /** 2024-12-09 improve resolution of unit cost precision */
+        if (strlen($parts[1] ?? '') > 2) {
+            $precision = strlen($parts[1]);
+        }
 
         //04-04-2023 if currency = JPY override precision to 0
         if ($this->currency->code == 'JPY') {

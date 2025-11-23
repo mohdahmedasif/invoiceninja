@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -49,7 +50,7 @@ class SelfUpdateController extends BaseController
         set_time_limit(0);
         define('STDIN', fopen('php://stdin', 'r'));
 
-        if (Ninja::isHosted()) {
+        if (Ninja::isHosted() || config('ninja.disable_auto_update')) {
             return response()->json(['message' => ctrans('texts.self_update_not_available')], 403);
         }
 
@@ -126,8 +127,7 @@ class SelfUpdateController extends BaseController
         Artisan::call('migrate', ['--force' => true]);
         Artisan::call('config:clear');
         Artisan::call('cache:clear');
-
-        // $this->runModelChecks();
+        Artisan::call('ninja:design-update');
 
         nlog('Called Artisan commands');
 

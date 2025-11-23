@@ -101,6 +101,11 @@
           description: 'An array of objects which define the line items of the credit'
           items:
             $ref: '#/components/schemas/InvoiceItem'
+        invitations:
+          type: array
+          description: 'An array of objects which define the invitations of the credit'
+          items:
+            $ref: '#/components/schemas/CreditInvitation'
         amount:
           description: "The total amount of the credit"
           type: number
@@ -216,4 +221,8 @@
           description: 'Toggles charging taxes on custom surcharge amounts'
           type: boolean
           example: true
+        location_id:
+          description: 'The client location id that this invoice relates to'
+          type: string
+          example: Opnel5aKBz
       type: object

@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -95,7 +96,9 @@ class CheckACHStatus implements ShouldQueue
                 $pi = false;
 
                 try {
-                    $pi = $stripe->getPaymentIntent($p->transaction_reference);
+                    if(str_starts_with($p->transaction_reference, 'pi_')){
+                        $pi = $stripe->getPaymentIntent($p->transaction_reference);
+                    }
                 } catch (\Exception $e) {
 
                 }
@@ -103,25 +106,59 @@ class CheckACHStatus implements ShouldQueue
                 if (!$pi) {
 
                     try {
-                        $pi = \Stripe\Charge::retrieve($p->transaction_reference, $stripe->stripe_connect_auth);
+                        $charge = \Stripe\Charge::retrieve($p->transaction_reference, $stripe->stripe_connect_auth);
+
+                        if($charge &&$charge->status == 'failed'){
+                            $p->service()->deletePayment();
+                            $p->status_id = \App\Models\Payment::STATUS_FAILED;
+                            $p->save();
+                            return;
+                        }
+                        elseif($charge && $charge->status == 'succeeded'){
+                            $p->status_id = Payment::STATUS_COMPLETED;
+                            $p->saveQuietly();
+                            return;
+                        }
+
                     } catch (\Exception $e) {
-                        return;
+                       
                     }
 
                 }
+
 
                 if ($pi && $pi->status == 'succeeded') {
                     $p->status_id = Payment::STATUS_COMPLETED;
                     $p->saveQuietly();
-                } else {
-
-                    if ($pi) {
-                        nlog("{$p->id} did not complete {$p->transaction_reference}");
-                    } else {
-                        nlog("did not find a payment intent {$p->transaction_reference}");
-                    }
-
+                    return;
                 }
+                
+                if($pi && $pi->latest_charge){
+
+                    $charge = \Stripe\Charge::retrieve($pi->latest_charge, $stripe->stripe_connect_auth);
+
+                    if($charge &&$charge->status == 'failed'){
+                        $p->service()->deletePayment();
+                        $p->status_id = \App\Models\Payment::STATUS_FAILED;
+                        $p->save();
+                        return;
+                    }
+                    elseif($charge && $charge->status == 'succeeded'){
+                        $p->status_id = \App\Models\Payment::STATUS_COMPLETED;
+                        $p->saveQuietly();
+                        return;
+                    }
+                }
+
+                
+
+                if ($pi) {
+                    nlog("{$p->id} did not complete {$p->transaction_reference}");
+                } else {
+                    nlog("did not find a payment intent {$p->transaction_reference}");
+                }
+
+                
 
             });
 

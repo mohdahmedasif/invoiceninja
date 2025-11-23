@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -86,5 +87,13 @@ class StripeWebhook implements ShouldQueue
                 'enabled_events' => $this->events,
             ], $stripe->stripe_connect_auth);
         }
+    }
+
+    public function failed($exception = null)
+    {
+        nlog("StripeWebhook failed: " . $exception->getMessage());
+        
+        config(['queue.failed.driver' => null]);
+
     }
 }

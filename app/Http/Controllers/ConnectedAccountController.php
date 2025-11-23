@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -110,7 +111,7 @@ class ConnectedAccountController extends BaseController
             nlog("microsoft");
             nlog($email);
 
-            if (auth()->user()->email != $email && MultiDB::checkUserEmailExists($email)) {
+            if (strtolower(auth()->user()->email) != strtolower($email) && MultiDB::checkUserEmailExists(strtolower($email))) {
                 return response()->json(['message' => ctrans('texts.email_already_register')], 400);
             }
 

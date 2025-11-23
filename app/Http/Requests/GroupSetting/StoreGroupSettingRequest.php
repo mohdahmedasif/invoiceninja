@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -46,6 +47,20 @@ class StoreGroupSettingRequest extends Request
         return $rules;
     }
 
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            
+            $user = auth()->user();
+            $company = $user->company();
+
+            if(isset($this->settings['lock_invoices']) && $company->verifactuEnabled() && $this->settings['lock_invoices'] != 'when_sent'){
+                $validator->errors()->add('settings.lock_invoices', 'Locked Invoices Cannot Be Disabled');
+            }
+            
+        });
+    }
+    
     public function prepareForValidation()
     {
         $input = $this->all();

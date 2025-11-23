@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -85,12 +86,15 @@ class RecurringInvoiceFilters extends QueryFilters
         }
 
         $recurring_filters = [];
+        
+        if (in_array('draft', $status_parameters)) {
+            $recurring_filters[] = RecurringInvoice::STATUS_DRAFT;
+        }
 
         if (in_array('active', $status_parameters)) {
             $recurring_filters[] = RecurringInvoice::STATUS_ACTIVE;
         }
-
-
+        
         if (in_array('paused', $status_parameters)) {
             $recurring_filters[] = RecurringInvoice::STATUS_PAUSED;
         }
@@ -126,14 +130,19 @@ class RecurringInvoiceFilters extends QueryFilters
 
         $sort_col = explode('|', $sort);
 
-        if (!is_array($sort_col) || count($sort_col) != 2) {
+        if ($sort_col[0] == 'next_send_datetime') {
+            $sort_col[0] = 'next_send_date';
+        }
+
+        if (!is_array($sort_col) || count($sort_col) != 2 || !in_array($sort_col[0], \Illuminate\Support\Facades\Schema::getColumnListing('recurring_invoices'))) {
             return $this->builder;
         }
 
         $dir = ($sort_col[1] == 'asc') ? 'asc' : 'desc';
 
         if ($sort_col[0] == 'client_id') {
-            return $this->builder->orderBy(\App\Models\Client::select('name')
+            return $this->builder->orderByRaw('ISNULL(client_id), client_id '. $dir)
+                    ->orderBy(\App\Models\Client::select('name')
                     ->whereColumn('clients.id', 'recurring_invoices.client_id'), $dir);
         }
 
@@ -143,10 +152,6 @@ class RecurringInvoiceFilters extends QueryFilters
 
         if ($sort_col[0] == 'status_id') {
             return $this->builder->orderBy('status_id', $dir)->orderBy('last_sent_date', $dir);
-        }
-
-        if ($sort_col[0] == 'next_send_datetime') {
-            $sort_col[0] = 'next_send_date';
         }
 
         return $this->builder->orderBy($sort_col[0], $dir);
@@ -200,7 +205,13 @@ class RecurringInvoiceFilters extends QueryFilters
         $parts = explode('|', $range);
 
         if (!isset($parts[0]) || !isset($parts[1])) {
-            return $this->builder;
+
+            $parts = explode(',', $range);
+            
+            if (!isset($parts[0]) || !isset($parts[1])){
+                return $this->builder;
+            }
+            
         }
 
         if (is_numeric($parts[0])) {

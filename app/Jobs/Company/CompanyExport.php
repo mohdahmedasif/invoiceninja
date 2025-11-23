@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -18,6 +19,7 @@ use App\Libraries\MultiDB;
 use App\Mail\DownloadBackup;
 use App\Models\Company;
 use App\Models\CreditInvitation;
+use App\Models\EInvoicingToken;
 use App\Models\InvoiceInvitation;
 use App\Models\PurchaseOrderInvitation;
 use App\Models\QuoteInvitation;
@@ -106,6 +108,14 @@ class CompanyExport implements ShouldQueue
         $x->addItems($this->export_data['activities']);
         $this->export_data = null;
 
+        $this->export_data['backups'] = $this->company->backups()->cursor()->map(function ($backup) {
+            $backup->activity_id = $this->encodePrimaryKey($backup->activity_id); //@phpstan-ignore-line
+            return $backup;
+        })->all();
+
+        $x = $this->writer->collection('backups');
+        $x->addItems($this->export_data['backups']);
+        $this->export_data = null;
 
         $this->export_data['users'] = $this->company->users()->withTrashed()->cursor()->map(function ($user) {
             /** @var \App\Models\User $user */
@@ -225,7 +235,7 @@ class CompanyExport implements ShouldQueue
 
         $this->export_data['credits'] = $this->company->credits()->orderBy('number', 'DESC')->cursor()->map(function ($credit) {
             $credit = $this->transformBasicEntities($credit);
-            $credit = $this->transformArrayOfKeys($credit, ['recurring_id','client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id','invoice_id']);
+            $credit = $this->transformArrayOfKeys($credit, ['recurring_id','client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id','invoice_id', 'location_id']);
 
             return $credit->makeVisible(['id']);
         })->all();
@@ -304,7 +314,7 @@ class CompanyExport implements ShouldQueue
 
         $this->export_data['invoices'] = $this->company->invoices()->orderBy('number', 'DESC')->cursor()->map(function ($invoice) {
             $invoice = $this->transformBasicEntities($invoice);
-            $invoice = $this->transformArrayOfKeys($invoice, ['recurring_id','client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id']);
+            $invoice = $this->transformArrayOfKeys($invoice, ['recurring_id','client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id', 'location_id']);
             $invoice->tax_data = '';
 
             return $invoice->makeHidden(['gateway_fee'])->makeVisible(['id',
@@ -387,7 +397,7 @@ class CompanyExport implements ShouldQueue
 
         $this->export_data['quotes'] = $this->company->quotes()->orderBy('number', 'DESC')->cursor()->map(function ($quote) {
             $quote = $this->transformBasicEntities($quote);
-            $quote = $this->transformArrayOfKeys($quote, ['invoice_id','recurring_id','client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id']);
+            $quote = $this->transformArrayOfKeys($quote, ['invoice_id','recurring_id','client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id', 'location_id']);
 
             return $quote->makeVisible(['id']);
         })->all();
@@ -426,7 +436,7 @@ class CompanyExport implements ShouldQueue
 
         $this->export_data['recurring_invoices'] = $this->company->recurring_invoices()->orderBy('number', 'DESC')->cursor()->map(function ($ri) {
             $ri = $this->transformBasicEntities($ri);
-            $ri = $this->transformArrayOfKeys($ri, ['client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id']);
+            $ri = $this->transformArrayOfKeys($ri, ['client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id', 'location_id']);
 
             return $ri->makeVisible(['id']);
         })->all();
@@ -487,8 +497,6 @@ class CompanyExport implements ShouldQueue
 
             return $task->makeHidden(['hash','meta'])->makeVisible(['id']);
         })->all();
-
-
 
         $x = $this->writer->collection('tasks');
         $x->addItems($this->export_data['tasks']);
@@ -564,7 +572,7 @@ class CompanyExport implements ShouldQueue
 
         $this->export_data['purchase_orders'] = $this->company->purchase_orders()->orderBy('number', 'DESC')->cursor()->map(function ($purchase_order) {
             $purchase_order = $this->transformBasicEntities($purchase_order);
-            $purchase_order = $this->transformArrayOfKeys($purchase_order, ['expense_id','client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id','project_id']);
+            $purchase_order = $this->transformArrayOfKeys($purchase_order, ['expense_id','client_id', 'vendor_id', 'project_id', 'design_id', 'subscription_id','project_id', 'location_id']);
 
             return $purchase_order->makeVisible(['id',
                                         'private_notes',
@@ -624,9 +632,29 @@ class CompanyExport implements ShouldQueue
 
         //write to tmp and email to owner();
 
+        if (Ninja::isSelfHost()) {
+            $this->export_data['e_invoicing_tokens'] = EInvoicingToken::all()->makeHidden(['id'])->all();
+        } else {
+            $this->export_data['e_invoicing_tokens'] = [];
+        }
+
+        $x = $this->writer->collection('e_invoicing_tokens');
+        $x->addItems($this->export_data['e_invoicing_tokens']);
+        $this->export_data = null;
+
+        $this->export_data['locations'] = $this->company->locations()->withTrashed()->orderBy('id', 'ASC')->cursor()->map(function ($location) {
+            $location = $this->transformArrayOfKeys($location, ['company_id', 'user_id', 'client_id', 'vendor_id']);
+
+            return $location->makeVisible(['id','user_id','company_id']);
+        })->all();
+
+        $x = $this->writer->collection('locations');
+        $x->addItems($this->export_data['locations']);
+        $this->export_data = null;
+
+        //////////////////////////////////// fine ////////////////////////////////////
 
         $this->writer->end();
-
 
         $this->zipAndSend();
 
@@ -661,6 +689,67 @@ class CompanyExport implements ShouldQueue
         return $new_arr;
     }
 
+    private function zipDocuments(\ZipArchive $zip): \ZipArchive
+    {
+
+        $this->company->all_documents()->chunk(100, function ($documents) use ($zip) {
+
+            foreach ($documents as $document) {
+                try {
+                    $content = $document->getFile();
+
+                    if ($content === false) {
+                        continue;
+                    }
+
+                    $zip->addFromString('documents/' . $document->url, $content);
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+
+            // Free up memory after each batch
+            gc_collect_cycles();
+        });
+
+        return $zip;
+    }
+
+    private function zipBackups(\ZipArchive $zip): \ZipArchive
+    {
+
+        $this->company->backups()->chunk(100, function ($backups) use ($zip) {
+
+            foreach ($backups as $backup) {
+                try {
+                    $content = $backup->getFile();
+
+                    if ($content === false || is_null($content)) {
+                        continue;
+                    }
+
+                    $zip->addFromString('backups/' . ($backup->filename ?? basename($backup->filename)), $content);
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+
+            // Free up memory after each batch
+            gc_collect_cycles();
+        });
+
+        return $zip;
+    }
+
+    private function backupCompanyLogo(\ZipArchive $zip): \ZipArchive
+    {
+        $logo = $this->company->present()->logoFile($this->company->settings);
+
+        $zip->addFromString("company_logo.png", $logo);
+
+        return $zip;
+    }
+
     private function zipAndSend()
     {
 
@@ -673,8 +762,12 @@ class CompanyExport implements ShouldQueue
         }
 
         $zip->addFile(sys_get_temp_dir().'/'.$this->file_name, 'backup.json');
-        // $zip->renameName($this->file_name, 'backup.json');
 
+        $zip = $this->backupCompanyLogo($zip);
+
+        $zip = $this->zipDocuments($zip);
+
+        $zip = $this->zipBackups($zip);
         $zip->close();
 
         Storage::disk(config('filesystems.default'))->put('backups/'.str_replace(".json", ".zip", $this->file_name), file_get_contents($zip_path));
@@ -718,5 +811,10 @@ class CompanyExport implements ShouldQueue
                 unlink(sys_get_temp_dir().'/'.$zip_path);
             }
         }
+    }
+
+    public function failed(\Throwable $exception)
+    {
+        nlog("Failed to export company: " . $exception->getMessage());
     }
 }

@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -72,7 +73,7 @@ class ARDetailReport extends BaseExport
         $t = app('translator');
         $t->replace(Ninja::transformTranslations($this->company->settings));
 
-        $this->csv = Writer::createFromString();
+        $this->csv = Writer::fromString();
         \League\Csv\CharsetConverter::addTo($this->csv, 'UTF-8', 'UTF-8');
 
         $this->csv->insertOne([]);
@@ -102,9 +103,11 @@ class ARDetailReport extends BaseExport
         $query = $this->addDateRange($query, 'invoices');
 
         $query = $this->filterByClients($query);
+        $query = $this->filterByUserPermissions($query);
 
         $query->cursor()
             ->each(function ($invoice) {
+                /** @var \App\Models\Invoice $invoice */
                 $this->csv->insertOne($this->buildRow($invoice));
             });
 

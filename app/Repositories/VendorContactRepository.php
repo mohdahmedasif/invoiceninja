@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -44,6 +45,7 @@ class VendorContactRepository extends BaseRepository
         /* Set first record to primary - always */
         $contacts = $contacts->sortByDesc('is_primary')->map(function ($contact) {
             $contact['is_primary'] = $this->is_primary;
+            $contact['send_email'] = true;
             $this->is_primary = false;
 
             return $contact;
@@ -94,6 +96,7 @@ class VendorContactRepository extends BaseRepository
             $new_contact->user_id = $vendor->user_id;
             $new_contact->contact_key = Str::random(40);
             $new_contact->is_primary = true;
+            $new_contact->send_email = true;
             $new_contact->saveQuietly();
         }
     }

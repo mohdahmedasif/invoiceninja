@@ -5,7 +5,7 @@
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -25,7 +25,7 @@ use App\Models\Quote;
 use App\Models\QuoteInvitation;
 use App\Models\Vendor;
 use App\Models\VendorContact;
-use App\Services\PdfMaker\Designs\Utilities\DesignHelpers;
+use App\Services\Pdf\Markdown;
 use App\Utils\Traits\MakesHash;
 use App\Utils\Traits\MakesInvoiceHtml;
 use App\Utils\Traits\MakesTemplateData;
@@ -95,7 +95,7 @@ class TemplateEngine
 
     private function setEntity()
     {
-        if (strlen($this->entity) > 1 && strlen($this->entity_id) > 1) {
+        if (strlen($this->entity ?? '') > 1 && strlen($this->entity_id ?? '') > 1) {
             $class = 'App\Models\\' . ucfirst(Str::camel($this->entity));
             $this->entity_obj = $class::query()->withTrashed()->where('id', $this->decodePrimaryKey($this->entity_id))->company()->first();
         } elseif (stripos($this->template, 'quote') !== false && $quote = Quote::query()->whereHas('invitations')->withTrashed()->company()->first()) {
@@ -143,7 +143,7 @@ class TemplateEngine
     /* If the body / subject are not populated we need to get the defaults */
     private function setTemplates()
     {
-        if (strlen($this->subject) == 0 && strlen($this->template) > 1) {
+        if (strlen($this->subject ?? '') == 0 && strlen($this->template ?? '') > 1) {
             $subject_template = str_replace('template', 'subject', $this->template);
 
             if (strlen($this->settings_entity->getSetting($subject_template)) > 1) {
@@ -153,7 +153,7 @@ class TemplateEngine
             }
         }
 
-        if (strlen($this->body) == 0 && strlen($this->template) > 1) {
+        if (strlen($this->body ?? '') == 0 && strlen($this->template ?? '') > 1) {
             if (strlen($this->settings_entity->getSetting($this->template)) > 1) {
                 $this->body = $this->settings_entity->getSetting($this->template);
             } else {
@@ -218,7 +218,7 @@ class TemplateEngine
         $email_style = $this->settings_entity->getSetting('email_style');
 
         if ($email_style !== 'custom') {
-            $this->body = DesignHelpers::parseMarkdownToHtml($this->body);
+            $this->body = \App\Services\Pdf\Markdown::parse($this->body);
         }
     }
 
@@ -249,26 +249,18 @@ class TemplateEngine
 
 
         if ($email_style == 'custom') {
-            $wrapper = $this->settings_entity->getSetting('email_style_custom');
+            $wrapper = $this->settings_entity->getSetting('email_style_custom') ?? '';
 
             // In order to parse variables such as $signature in the body,
             // we need to replace strings with the values from HTMLEngine.
             $wrapper = strtr($wrapper, $this->labels_and_values['values']);
 
-            /*If no custom design exists, send back a blank!*/
-            if (strlen($wrapper) > 1) {
-                // $wrapper = $this->renderView($wrapper, $data);
-            } else {
-                $wrapper = '';
-            }
         } elseif ($email_style == 'plain') {
             $wrapper = view($this->getTemplatePath($email_style), $data)->render();
-            $injection = '';
-            $wrapper = str_replace('<head>', $injection, $wrapper);
+            $wrapper = str_replace('<head>', '', $wrapper);
         } else {
             $wrapper = view($this->getTemplatePath('client'), $data)->render();
-            $injection = '';
-            $wrapper = str_replace('<head>', $injection, $wrapper);
+            $wrapper = str_replace('<head>', '', $wrapper);
         }
 
         $data = [

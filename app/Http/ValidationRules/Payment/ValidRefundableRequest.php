@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -28,7 +29,7 @@ class ValidRefundableRequest implements Rule
      * @param mixed $value
      * @return bool
      */
-    private $error_msg;
+    private $error_msg = '';
 
     private $input;
 
@@ -63,7 +64,7 @@ class ValidRefundableRequest implements Rule
             $this->checkInvoiceIsPaymentable($request_invoice, $payment);
         }
 
-        if (strlen($this->error_msg) > 0) {
+        if (strlen($this->error_msg) > 1) {
             return false;
         }
 
@@ -85,12 +86,12 @@ class ValidRefundableRequest implements Rule
             $paymentable_invoice = $payment->invoices->where('id', $invoice->id)->first();
 
             if (! $paymentable_invoice) {
-                $this->error_msg = ctrans('texts.invoice_not_related_to_payment', ['invoice' => $invoice->hashed_id]);
+                $this->error_msg = ctrans('texts.invoice_not_related_to_payment', ['invoice' => $invoice->number]);
 
                 return false;
             }
         } else {
-            $this->error_msg = ctrans('texts.invoice_not_related_to_payment', ['invoice' => $invoice->hashed_id]);
+            $this->error_msg = ctrans('texts.invoice_not_related_to_payment', ['invoice' => $invoice->number]);
 
             return false;
         }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
@@ -29,12 +30,14 @@ use App\Models\Vendor;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 /**
- * 
+ *
  */
 class EntityTest extends TestCase
 {
     use MockAccountData;
-    // use DatabaseTransactions;
+    use DatabaseTransactions;
+
+    public $faker;
 
     public $invoice;
 
@@ -89,17 +92,6 @@ class EntityTest extends TestCase
 
     protected function tearDown(): void
     {
-        
-            
-        // $this->company->company_users->each(function ($company_user) {
-        //     $company_user->user->forceDelete();
-        //     $company_user->forceDelete();
-        // });
-
-        // // Clean up any resources or reset state if necessary
-        // $this->account->delete();
-
-
         parent::tearDown();
     }
 }

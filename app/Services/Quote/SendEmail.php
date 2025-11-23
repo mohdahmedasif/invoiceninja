@@ -1,22 +1,25 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
 
 namespace App\Services\Quote;
 
+use App\Utils\Ninja;
+use App\Models\Quote;
 use App\Models\Webhook;
 use App\Models\ClientContact;
 use App\Services\Email\Email;
 use App\Jobs\Entity\EmailEntity;
-use App\Models\Quote;
 use App\Services\Email\EmailObject;
+use App\Events\General\EntityWasEmailed;
 
 class SendEmail
 {
@@ -31,15 +34,12 @@ class SendEmail
     public function run()
     {
 
-        if(in_array($this->reminder_template, ["email_quote_template_reminder1","reminder1"]))
-            $this->reminder_template = "email_quote_template_reminder1";
-        else    
-            $this->reminder_template = "email_template_".$this->quote->calculateTemplate('quote');
+        $this->reminder_template = $this->resolveTemplateString($this->reminder_template);
 
         $this->quote->service()->markSent()->save();
 
         $this->quote->invitations->each(function ($invitation) {
-            if (! $invitation->contact->trashed() && $invitation->contact->email) {
+            if (! $invitation->contact->trashed() && $invitation->contact->email && !$invitation->contact->is_locked) {
 
                 //@refactor 2024-11-10
                 $mo = new EmailObject();
@@ -55,10 +55,26 @@ class SendEmail
 
                 Email::dispatch($mo, $invitation->company);
 
+                $this->quote->entityEmailEvent($invitation, $this->reminder_template, $this->reminder_template);
+
             }
         });
 
+        event(new EntityWasEmailed($this->quote->invitations->first(), $this->quote->company, Ninja::eventVars(auth()->user() ? auth()->user()->id : null), 'quote'));
+
         $this->quote->sendEvent(Webhook::EVENT_SENT_QUOTE, "client");
 
+    }
+
+    private function resolveTemplateString(string $template): string
+    {
+        return match ($template) {
+            'quote' => 'email_template_quote',
+            'reminder1' => 'email_quote_template_reminder1',
+            'custom1' => 'email_template_custom1',
+            'custom2' => 'email_template_custom2',
+            'custom3' => 'email_template_custom3',
+            default => "email_template_quote",
+        };
     }
 }

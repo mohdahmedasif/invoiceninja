@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -72,6 +73,7 @@ class RecurringInvoiceExport extends BaseExport
         if ($clients) {
             $query = $this->addClientFilter($query, $clients);
         }
+        $query = $this->filterByUserPermissions($query);
 
         $query = $this->addRecurringInvoiceStatusFilter($query, $this->input['status'] ?? '');
 
@@ -85,7 +87,7 @@ class RecurringInvoiceExport extends BaseExport
         $query  = $this->init();
 
         //load the CSV document from a string
-        $this->csv = Writer::createFromString();
+        $this->csv = Writer::fromString();
         \League\Csv\CharsetConverter::addTo($this->csv, 'UTF-8', 'UTF-8');
 
         //insert the header

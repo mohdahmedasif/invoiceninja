@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -15,8 +16,12 @@ use App\Utils\Ninja;
 use App\Models\Account;
 use App\Models\Company;
 use App\Utils\TempFile;
+use App\Services\Email\Email;
 use Illuminate\Bus\Queueable;
+use App\Services\Email\EmailObject;
+use Illuminate\Support\Facades\App;
 use App\Utils\Traits\SavesDocuments;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -35,14 +40,16 @@ class EInvoicePullDocs implements ShouldQueue
 
     public $tries = 1;
 
+    private int $einvoice_received_count = 0;
+    
     public function __construct()
     {
     }
 
-    public function handle() 
+    public function handle()
     {
         nlog("Pulling Peppol Docs ". now()->format('Y-m-d h:i:s'));
-        
+
         if (Ninja::isHosted()) {
             return;
         }
@@ -54,14 +61,16 @@ class EInvoicePullDocs implements ShouldQueue
                     $q->whereNotNull('legal_entity_id');
                 })
                 ->cursor()
-                ->each(function ($account){
+                ->each(function ($account) {
 
                     $account->companies->filter(function ($company) {
 
                         return $company->settings->e_invoice_type == 'PEPPOL' && ($company->tax_data->acts_as_receiver ?? false);
 
                     })
-                    ->each(function ($company){
+                    ->each(function ($company) {
+
+                        $this->einvoice_received_count = 0;
 
                         $response = \Illuminate\Support\Facades\Http::baseUrl(config('ninja.hosted_ninja_url'))
                             ->withHeaders([
@@ -76,18 +85,35 @@ class EInvoicePullDocs implements ShouldQueue
                                 'legal_entity_id' => $company->legal_entity_id,
                             ]);
 
-                        if($response->successful()){
+                        if ($response->successful()) {
 
                             $hash = $response->header('X-CONFIRMATION-HASH');
 
                             $this->handleSuccess($response->json(), $company, $hash);
-                        }
-                        else {
+                        } else {
                             nlog($response->body());
                         }
 
-                    });
+
+
+                        if($this->einvoice_received_count > 0) {
+                            App::setLocale($company->getLocale());
+
+                            $mo = new EmailObject();
+                            $mo->subject = ctrans('texts.einvoice_received_subject');
+                            $mo->body = ctrans('texts.einvoice_received_body', ['count' => $this->einvoice_received_count]);
+                            $mo->text_body = ctrans('texts.einvoice_received_body', ['count' => $this->einvoice_received_count]);
+                            $mo->company_key = $company->company_key;
+                            $mo->html_template = 'email.template.admin';
+                            $mo->to = [new Address($company->owner()->email, $company->owner()->present()->name())];
+                            // $mo->email_template_body = 'einvoice_received_body';
+                            // $mo->email_template_subject = 'einvoice_received_subject';
                     
+                            Email::dispatch($mo, $company);
+                        }
+
+                    });
+
                 });
     }
 
@@ -96,29 +122,39 @@ class EInvoicePullDocs implements ShouldQueue
 
         $storecove = new Storecove();
 
-        foreach($received_documents as $document)
-        {
-            
+        $mail_payload = [];
+
+        foreach ($received_documents as $document) {
+            nlog($document);
             $storecove_invoice = $storecove->expense->getStorecoveInvoice(json_encode($document['document']['invoice']));
             $expense = $storecove->expense->createExpense($storecove_invoice, $company);
 
-            $file_name = \Illuminate\Support\Str::ascii(substr($expense->private_notes, 0, 255));
+            $file_name = $document['guid'];
 
-            if(strlen($document['html'] ?? '') > 5)
-            {
+            if (strlen($document['html'] ?? '') > 5) {
 
-                $document = TempFile::UploadedFileFromRaw($document['html'], "{$file_name}.html", 'text/html');
-                $this->saveDocument($document, $expense);
+                $upload_document = TempFile::UploadedFileFromRaw($document['html'], "{$file_name}.html", 'text/html');
+                $this->saveDocument($upload_document, $expense, true);
+                $upload_document = null;
+            }
+
+            if (strlen($document['original_base64_xml'] ?? '') > 5) {
+
+                $upload_document = TempFile::UploadedFileFromBase64($document['original_base64_xml'], "{$file_name}.xml", 'application/xml');
+                $this->saveDocument($upload_document, $expense, true);
+                $upload_document = null;
+            }
+
+            foreach ($document['document']['invoice']['attachments'] as $attachment) {
+
+                $upload_document = TempFile::UploadedFileFromBase64($attachment['document'], $attachment['filename'], $attachment['mime_type']);
+                $this->saveDocument($upload_document, $expense, true);
+                $upload_document = null;
 
             }
 
-            if(strlen($document['original_base64_xml'] ?? '') > 5)
-            {
-                
-                $document = TempFile::UploadedFileFromBase64($document['original_base64_xml'], "{$file_name}.xml", 'application/xml');
-                $this->saveDocument($document, $expense);
+            $this->einvoice_received_count++;
 
-            }
         }
 
         $response = \Illuminate\Support\Facades\Http::baseUrl(config('ninja.hosted_ninja_url'))
@@ -135,8 +171,15 @@ class EInvoicePullDocs implements ShouldQueue
                 'hash'  => $hash
             ]);
 
-        if($response->successful()){
+        if ($response->successful()) {
         }
 
+
+
+    }
+
+    public function failed(\Throwable $exception)
+    {
+        nlog($exception->getMessage());
     }
 }

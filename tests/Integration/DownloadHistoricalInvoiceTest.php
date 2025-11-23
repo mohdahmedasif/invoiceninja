@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
@@ -19,7 +20,7 @@ use Tests\MockAccountData;
 use Tests\TestCase;
 
 /**
- * 
+ *
  *  App\Http\Controllers\ActivityController
 */
 class DownloadHistoricalInvoiceTest extends TestCase
@@ -119,7 +120,7 @@ class DownloadHistoricalInvoiceTest extends TestCase
         $obj->invoice_id = $this->invoice->id;
         $obj->user_id = $this->invoice->user_id;
         $obj->company_id = $this->company->id;
-
+        $obj->activity_type_id = \App\Models\Activity::EMAIL_INVOICE;
         $activity_repo->save($obj, $this->invoice, Ninja::eventVars());
     }
 

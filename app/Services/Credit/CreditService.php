@@ -1,25 +1,27 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
 
 namespace App\Services\Credit;
 
-use App\Factory\PaymentFactory;
-use App\Jobs\EDocument\CreateEDocument;
+use App\Utils\Ninja;
 use App\Models\Credit;
 use App\Models\Payment;
 use App\Models\PaymentType;
-use App\Repositories\CreditRepository;
-use App\Repositories\PaymentRepository;
-use App\Utils\Ninja;
+use App\Factory\PaymentFactory;
 use App\Utils\Traits\MakesHash;
+use App\Repositories\CreditRepository;
+use App\Services\Invoice\LocationData;
+use App\Jobs\EDocument\CreateEDocument;
+use App\Repositories\PaymentRepository;
 use Illuminate\Support\Facades\Storage;
 
 class CreditService
@@ -31,6 +33,11 @@ class CreditService
     public function __construct($credit)
     {
         $this->credit = $credit;
+    }
+
+    public function location(): array
+    {
+        return (new LocationData($this->credit))->run();
     }
 
     public function getCreditPdf($invitation)
@@ -73,9 +80,9 @@ class CreditService
         return $this;
     }
 
-    public function sendEmail($contact = null)
+    public function sendEmail($contact = null, $email_type = null)
     {
-        $send_email = new SendEmail($this->credit, null, $contact);
+        $send_email = new SendEmail($this->credit, $email_type, $contact);
 
         return $send_email->run();
     }
@@ -84,7 +91,7 @@ class CreditService
     {
         if ((int) $this->credit->balance == 0) {
             $this->credit->status_id = Credit::STATUS_APPLIED;
-        } elseif ((string) $this->credit->amount == (string) $this->credit->balance) {
+        } elseif ((string) round($this->credit->amount, 2) == (string) round($this->credit->balance, 2)) {
             $this->credit->status_id = Credit::STATUS_SENT;
         } elseif ($this->credit->balance > 0) {
             $this->credit->status_id = Credit::STATUS_PARTIAL;
@@ -253,18 +260,18 @@ class CreditService
     public function deleteCredit()
     {
         $paid_to_date = $this->credit->invoice_id ? $this->credit->balance : 0;
-
+        /** 2025-09-24 - On invoice reversal => credit => delete - we reassign the payment to the credit - so no need to update the paid to date! */
         $this->credit
             ->client
             ->service()
-            ->updatePaidToDate($paid_to_date)
+            // ->updatePaidToDate($paid_to_date)
             ->adjustCreditBalance($this->credit->balance * -1)
             ->save();
 
         return $this;
     }
 
-
+    /** 2025-09-24 - On invoice reversal => credit => delete - we reassign the payment to the credit - so no need to update the paid to date! */
     public function restoreCredit()
     {
 
@@ -273,7 +280,7 @@ class CreditService
         $this->credit
              ->client
              ->service()
-             ->updatePaidToDate($paid_to_date * -1)
+            //  ->updatePaidToDate($paid_to_date * -1)
              ->adjustCreditBalance($this->credit->balance)
              ->save();
 

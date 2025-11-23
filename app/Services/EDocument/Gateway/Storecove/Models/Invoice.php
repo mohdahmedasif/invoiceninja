@@ -50,12 +50,13 @@ class Invoice
     #[SerializedPath('[cac:LegalMonetaryTotal][cbc:TaxInclusiveAmount][#]')]
     public $amount_including_vat;
 
+    #[SerializedPath('[cac:AdditionalDocumentReference]')]
     /** @var Attachments[] */
     public ?array $attachments;
 
     public ?bool $consumer_tax_mode; //toggle this to TRUE if we are using a secondary identifier ie. when German company is taxing French company and therefore using the additional Vat identifier
 
-    #[SerializedName('cac:Delivery')]
+    #[SerializedName('[cac:Delivery][0]')]
     public ?Delivery $delivery;
 
     //no mapping

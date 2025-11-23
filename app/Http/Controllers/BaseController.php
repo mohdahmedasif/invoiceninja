@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
@@ -87,9 +88,9 @@ class BaseController extends Controller
 
     /* Grouped permissions when we want to hide columns for particular permission groups*/
 
-    private array $client_exclusion_fields = ['balance', 'paid_to_date', 'credit_balance', 'client_hash'];
-    private array $client_excludable_permissions = ['view_client'];
-    private array $client_excludable_overrides = ['edit_client', 'edit_all', 'view_invoice', 'view_all', 'edit_invoice'];
+    protected array $client_exclusion_fields = ['balance', 'paid_to_date', 'credit_balance', 'client_hash'];
+    protected array $client_excludable_permissions = ['view_client'];
+    protected array $client_excludable_overrides = ['edit_client', 'edit_all', 'view_invoice', 'view_all', 'edit_invoice'];
 
     /* Grouped permissions when we want to hide columns for particular permission groups*/
 
@@ -154,6 +155,7 @@ class BaseController extends Controller
           'company.bank_transactions',
           'company.bank_transaction_rules',
           'company.task_schedulers',
+          'company.locations',
         ];
 
     /**
@@ -178,6 +180,7 @@ class BaseController extends Controller
         'company.bank_integrations',
         'company.bank_transaction_rules',
         'company.task_schedulers',
+        'company.locations',
     ];
 
     /**
@@ -525,6 +528,9 @@ class BaseController extends Controller
                 'company.task_schedulers' => function ($query) {
                     $query->whereNotNull('updated_at');
                 },
+                'company.locations' => function ($query) {
+                    $query->whereNotNull('updated_at');
+                },
             ]
         );
 
@@ -630,6 +636,9 @@ class BaseController extends Controller
                         $query->where('schedulers.user_id', $user->id);
                     }
                 },
+                'company.locations' => function ($query) use ($created_at) {
+                    $query->where('created_at', '>=', $created_at);
+                },
             ]
         );
 
@@ -644,10 +653,7 @@ class BaseController extends Controller
             $resource = new Collection($query, $transformer, $this->entity_type);
             $resource->setPaginator(new IlluminatePaginatorAdapter($paginator));
         }
-        //  else {
-        //     $resource = new Collection($query, $transformer, $this->entity_type);
-        // }
-
+        
         return $this->response($this->manager->createData($resource)->toArray());
     }
 
@@ -662,7 +668,17 @@ class BaseController extends Controller
         /** @var \App\Models\User $user */
         $user = auth()->user();
 
-        if ($user->getCompany()->is_large) {
+        /** React does not require bloated login response. */
+        if(request()->hasHeader('X-React')){
+            $this->manager->parseIncludes(
+            [
+                'account',
+                'user.company_user',
+                'token',
+                'company',
+            ]);
+        } 
+        elseif ($user->getCompany()->is_large) {
             $this->manager->parseIncludes($this->mini_load);
 
             return $this->miniLoadResponse($query);
@@ -1080,7 +1096,7 @@ class BaseController extends Controller
                 $data = $this->first_load;
             }
         } else {
-            $included = request()->input('include', '');
+            $included = request()->input('include') ?? '';
             $included = explode(',', $included);
 
             foreach ($included as $include) {

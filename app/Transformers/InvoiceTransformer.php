@@ -1,25 +1,27 @@
 <?php
+
 /**
  * Invoice Ninja (https://invoiceninja.com).
  *
  * @link https://github.com/invoiceninja/invoiceninja source repository
  *
- * @copyright Copyright (c) 2024. Invoice Ninja LLC (https://invoiceninja.com)
+ * @copyright Copyright (c) 2025. Invoice Ninja LLC (https://invoiceninja.com)
  *
  * @license https://www.elastic.co/licensing/elastic-license
  */
 
 namespace App\Transformers;
 
-use App\Models\Activity;
 use App\Models\Backup;
 use App\Models\Client;
 use App\Models\Credit;
-use App\Models\Document;
 use App\Models\Invoice;
-use App\Models\InvoiceInvitation;
 use App\Models\Payment;
+use App\Models\Project;
+use App\Models\Activity;
+use App\Models\Document;
 use App\Utils\Traits\MakesHash;
+use App\Models\InvoiceInvitation;
 
 class InvoiceTransformer extends EntityTransformer
 {
@@ -34,7 +36,20 @@ class InvoiceTransformer extends EntityTransformer
         'payments',
         'client',
         'activities',
+        'location',
+        'project',
     ];
+
+    public function includeLocation(Invoice $invoice)
+    {
+        $transformer = new LocationTransformer($this->serializer);
+
+        if (!$invoice->location) {
+            return null;
+        }
+
+        return $this->includeItem($invoice->location, $transformer, \App\Models\Location::class);
+    }
 
     public function includeInvitations(Invoice $invoice)
     {
@@ -55,6 +70,17 @@ class InvoiceTransformer extends EntityTransformer
         $transformer = new ClientTransformer($this->serializer);
 
         return $this->includeItem($invoice->client, $transformer, Client::class);
+    }
+
+    public function includeProject(Invoice $invoice)
+    {
+        $transformer = new ProjectTransformer($this->serializer);
+
+        if (!$invoice->project) {
+            return null;
+        }
+
+        return $this->includeItem($invoice->project, $transformer, Project::class);
     }
 
     public function includePayments(Invoice $invoice)
@@ -159,7 +185,8 @@ class InvoiceTransformer extends EntityTransformer
             'auto_bill_enabled' => (bool) $invoice->auto_bill_enabled,
             'tax_info' => $invoice->tax_data ?: new \stdClass(),
             'e_invoice' => $invoice->e_invoice ?: new \stdClass(),
-            'backup' => $invoice->backup ?: new \stdClass(),
+            'backup' => $invoice->backup,
+            'location_id' => $this->encodePrimaryKey($invoice->location_id),
         ];
 
         if (request()->has('reminder_schedule') && request()->query('reminder_schedule') == 'true') {
@@ -169,6 +196,11 @@ class InvoiceTransformer extends EntityTransformer
         if (request()->has('is_locked') && request()->query('is_locked') == 'true') {
             $data['is_locked'] = (bool) $invoice->isLocked();
         }
+        
+        if (request()->has('show_schedule') && request()->query('show_schedule') == 'true') {
+            $data['schedule'] = (array) $invoice->paymentSchedule();
+        }
+
 
         return $data;
 
