@@ -253,14 +253,9 @@ class Invoice extends BaseModel
 
     public const STATUS_UNPAID = -2; //status < 4 || < 3 && !is_deleted && !trashed()
 
-    // public function searchableAs()
-    // {
-    //     return 'invoices_index';  // for when we need to rename
-    // }
-
     public function searchableAs(): string
     {
-        return 'invoices_v2';
+        return 'invoices';
     }
 
     public function toSearchableArray()
@@ -283,8 +278,8 @@ class Invoice extends BaseModel
             'custom_value3' => (string)$this->custom_value3,
             'custom_value4' => (string)$this->custom_value4,
             'company_key' => $this->company->company_key,
-            'po_number' => (string)$this->po_number,
-            'line_items' => (array)$this->line_items,
+            'po_number' => (string) $this->po_number,
+            'line_items' => (array) $this->line_items,
         ];
     }
 
