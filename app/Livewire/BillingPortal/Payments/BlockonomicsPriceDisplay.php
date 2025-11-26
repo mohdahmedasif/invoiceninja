@@ -63,9 +63,7 @@ class BlockonomicsPriceDisplay extends Component
                 }
             }
 
-            nlog($response->body());
         } catch (\Exception $e) {
-            nlog('Failed to refresh BTC price: ' . $e->getMessage());
         } finally {
             $this->is_refreshing = false;
         }
