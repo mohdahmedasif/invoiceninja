@@ -27,10 +27,6 @@ class Atomic
             }
         }
 
-        if (Cache::has($key)) {
-            return false;
-        }
-
         return Cache::add($key, $value, $ttl);
     }
 
