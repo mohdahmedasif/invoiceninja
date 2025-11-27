@@ -33,9 +33,6 @@ class NotificationTest extends TestCase
 {
     use UserNotifies;
     use MockAccountData;
-
-    protected $faker;
-
     protected function setUp(): void
     {
         parent::setUp();

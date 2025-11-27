@@ -48,10 +48,6 @@ class PeppolTest extends TestCase
     use MockAccountData;
 
     protected int $iterations = 10;
-
-
-    public $faker;
-
     protected function setUp(): void
     {
         parent::setUp();

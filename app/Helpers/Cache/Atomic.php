@@ -11,20 +11,19 @@
 
 namespace App\Helpers\Cache;
 
-use App\Utils\Ninja;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Redis;
 
 class Atomic
 {
-    public static function set($key, $value = true, $ttl = 1)
+    public static function set($key, $value = true, $ttl = 1): bool
     {
         $new_ttl = now()->addSeconds($ttl);
 
         try {
-            return Redis::connection('sentinel-cache')->set($key, $value, 'NX', 'EX', $new_ttl);
+            return Redis::connection('sentinel-cache')->set($key, $value, 'EX', $ttl, 'NX') ? true : false;
         } catch (\Throwable) {
-            return Cache::add($key, $value, $new_ttl);
+            return Cache::add($key, $value, $new_ttl) ? true : false;
         }
     
     }
