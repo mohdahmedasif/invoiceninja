@@ -133,7 +133,6 @@ class StripePaymentDriver extends BaseDriver implements SupportsHeadlessInterfac
             Stripe::setApiKey($this->company_gateway->getConfigField('apiKey'));
             Stripe::setAPiVersion('2023-10-16');
         }
-            $this->webhook_secret = $this->company_gateway->getConfigField('webhookSecret');
 
         return $this;
     }
@@ -717,12 +716,11 @@ class StripePaymentDriver extends BaseDriver implements SupportsHeadlessInterfac
                     $request->getContent(),
                     $sig_header,
                     $webhook_secret
-        };
+        );
         } catch (\Stripe\Exception\SignatureVerificationException $e) {
             nlog("Stripe webhook signature verification failed: " . $e->getMessage());
             return response()->json(['error' => 'Invalid signature'], 403);
         }
-    }
         
         if ($request->type === 'customer.source.updated') {
             $ach = new ACH($this);
