@@ -711,6 +711,7 @@ class StripePaymentDriver extends BaseDriver implements SupportsHeadlessInterfac
                 nlog("Stripe webhook signature verification failed: No signature header");
                 return response()->json(['error' => 'No signature header'], 403);
             }
+        }
             try {
                 \Stripe\Webhook::constructEvent(
                     $request->getContent(),
