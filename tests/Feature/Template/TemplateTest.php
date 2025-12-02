@@ -439,7 +439,7 @@ class TemplateTest extends TestCase
         $credits = Credit::orderBy('id', 'desc')->where('client_id', $this->client->id)->take(2)->get()->map(function ($c) {
             return $c->service()->markSent()->applyNumber()->save();
         })->map(function ($i) {
-            return ['credit_id' => $i->hashed_id, 'amount' => rand(0, $i->balance)];
+            return ['credit_id' => $i->hashed_id, 'amount' => rand(0.1, $i->balance)];
         })->toArray();
 
         $data = [
