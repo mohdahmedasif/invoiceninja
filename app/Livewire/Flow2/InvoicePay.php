@@ -171,7 +171,6 @@ class InvoicePay extends Component
 
         $this->setContext($invite->key,'fields', $fields); // $this->context['fields'] = $fields;
 
-
         foreach ($fields as $index => $field) {
             $_field = $this->mappings[$field['name']];
 
@@ -303,6 +302,7 @@ class InvoicePay extends Component
 
     public function render(): \Illuminate\Contracts\View\Factory|\Illuminate\View\View
     {
+        //@phpstan-ignore-next-line
         $invite = \App\Models\InvoiceInvitation::with('contact.client', 'company')->withTrashed()->find($this->invitation_id);
 
         return render('flow2.invoice-pay', ['_key' => $invite->key]);
