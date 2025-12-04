@@ -816,7 +816,7 @@ class HtmlEngine
         }
 
         if ($this->entity_string == 'invoice' || $this->entity_string == 'recurring_invoice') {
-            $data['$sepa_qr_code'] = ['value' => (new EpcQrGenerator($this->company, $this->entity, $data['$amount_raw']['value']))->getQrCode(), 'label' => ''];
+            $data['$sepa_qr_code'] = ['value' => (new EpcQrGenerator($this->company, $this->entity, $data['$balance_due_raw']['value']))->getQrCode(), 'label' => ''];
             $data['$sepa_qr_code_raw'] = ['value' => html_entity_decode($data['$sepa_qr_code']['value']), 'label' => ''];
         }
 
