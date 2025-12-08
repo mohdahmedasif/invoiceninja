@@ -208,8 +208,15 @@ class HtmlEngine
         $data['$location.custom3'] = &$data['$location3'];
         $data['$location.custom4'] = &$data['$location4'];
 
-        if ($this->entity_string == 'invoice' || $this->entity_string == 'recurring_invoice') {        
-            $data['$entity'] = ['value' => ctrans('texts.invoice'), 'label' => ctrans('texts.invoice')];
+        if ($this->entity_string == 'invoice' || $this->entity_string == 'recurring_invoice') {    
+            
+            if($this->client->peppolSendingEnabled() && $this->entity->amount < 0) {
+                $data['$entity'] = ['value' => ctrans('texts.credit'), 'label' => ctrans('texts.credit')];
+            }
+            else {
+                $data['$entity'] = ['value' => ctrans('texts.invoice'), 'label' => ctrans('texts.invoice')];
+            }
+            
             $data['$number'] = ['value' => $this->entity->number ?: ' ', 'label' => ctrans('texts.invoice_number')];
             $data['$invoice'] = ['value' => $this->entity->number ?: ' ', 'label' => ctrans('texts.invoice_number')];
             $data['$number_short'] = ['value' => $this->entity->number ?: ' ', 'label' => ctrans('texts.invoice_number_short')];
@@ -809,7 +816,7 @@ class HtmlEngine
         }
 
         if ($this->entity_string == 'invoice' || $this->entity_string == 'recurring_invoice') {
-            $data['$sepa_qr_code'] = ['value' => (new EpcQrGenerator($this->company, $this->entity, $data['$amount_raw']['value']))->getQrCode(), 'label' => ''];
+            $data['$sepa_qr_code'] = ['value' => (new EpcQrGenerator($this->company, $this->entity, $data['$balance_due_raw']['value']))->getQrCode(), 'label' => ''];
             $data['$sepa_qr_code_raw'] = ['value' => html_entity_decode($data['$sepa_qr_code']['value']), 'label' => ''];
         }
 
@@ -824,7 +831,7 @@ class HtmlEngine
 
     private function getVerifactuQrCode()
     {
-        if(!($this->entity instanceof \App\Models\Invoice) || !$this->entity->verifactuEnabled() || strlen($this->entity->backup->guid ?? '') < 2 || $this->entity->backup->guid == 'exempt') {
+        if(!($this->entity instanceof \App\Models\Invoice) || !$this->company->verifactuEnabled() || strlen($this->entity->backup->guid ?? '') < 2 || $this->entity->backup->guid == 'exempt') {
             return '';
         }
 
