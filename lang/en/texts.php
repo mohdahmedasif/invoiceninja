@@ -5668,6 +5668,7 @@ $lang = array(
     'use_legacy_editor_help' => 'Use the TinyMCE editor.',
     'enable_e_invoice_received_notification' => 'Enable E-Invoice Received Notification',
     'enable_e_invoice_received_notification_help' => 'Receive an email notification when a new E-Invoice is received.',
+    'price_changes' => 'Plan Price Changes from January 1st 2026',
 );
 
 return $lang;
