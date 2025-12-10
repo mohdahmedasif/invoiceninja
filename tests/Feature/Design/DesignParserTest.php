@@ -79,10 +79,18 @@ class DesignParserTest extends TestCase
         $item = InvoiceItemFactory::create();
         $item->quantity = 1.75;
         $item->cost = 49.58;
+        $item->product_key = 'test_product';
+        $item->notes = 'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.';
         $item->tax_name1 = 'mwst';
         $item->tax_rate1 = 19;
         $item->type_id = '1';
         $item->tax_id = '1';
+        $line_items[] = $item;
+        $line_items[] = $item;
+        $line_items[] = $item;
+        $line_items[] = $item;
+        $line_items[] = $item;
+        $line_items[] = $item;
         $line_items[] = $item;
 
 

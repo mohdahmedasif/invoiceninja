@@ -116,7 +116,7 @@ class InvoiceDesignRenderer
     /**
      * Group blocks into rows based on similar Y positions
      */
-    public function groupBlocksIntoRows(array $blocks): array
+    private function groupBlocksIntoRows(array $blocks): array
     {
         $rows = [];
         $currentRow = [];
@@ -146,7 +146,7 @@ class InvoiceDesignRenderer
     /**
      * Render a row of blocks
      */
-    public function renderRow(array $blocks): string
+    private function renderRow(array $blocks): string
     {
         $blocksHTML = '';
         foreach ($blocks as $block) {
@@ -190,7 +190,7 @@ class InvoiceDesignRenderer
     /**
      * Get CSS page size string based on settings
      */
-    public function getPageSizeCSS(): string
+    private function getPageSizeCSS(): string
     {
         $pageSize = $this->pageSettings['pageSize'] ?? 'a4';
         $orientation = $this->pageSettings['orientation'] ?? 'portrait';
@@ -211,7 +211,7 @@ class InvoiceDesignRenderer
     /**
      * Get CSS page margins string based on settings
      */
-    public function getPageMarginsCSS(): string
+    private function getPageMarginsCSS(): string
     {
         $top = $this->pageSettings['marginTop'] ?? '10mm';
         $right = $this->pageSettings['marginRight'] ?? '10mm';
@@ -224,7 +224,7 @@ class InvoiceDesignRenderer
     /**
      * Generate complete HTML document structure with flow-based CSS
      */
-    public function generateDocument(string $content): string
+    private function generateDocument(string $content): string
     {
         $padding = self::PADDING_V . 'px ' . self::PADDING_H . 'px';
         $marginBottom = self::MARGIN_V . 'px';
@@ -366,7 +366,7 @@ HTML;
     /**
      * Generate CSS styles from block.properties.styles
      */
-    public function generateBlockStyles(array $block): array
+    private function generateBlockStyles(array $block): array
     {
         $props = $block['properties'] ?? [];
         $styles = $props['styles'] ?? [];
@@ -437,20 +437,28 @@ HTML;
 
     /**
      * Render a single block with flow-based layout
+     * Each block has a unique ID for CSS targeting
      */
-    public function renderBlock(array $block): string
+    private function renderBlock(array $block): string
     {
         $gridPos = $block['gridPosition'];
-        $content = $this->renderBlockContent($block);
+        $blockId = $block['id'] ?? $this->generateBlockId($block['type']);
+        $blockType = $block['type'];
+        
+        $content = $this->renderBlockContent($block, $blockId);
         
         // Calculate width as percentage of 12 columns
         $widthPercent = ($gridPos['w'] / self::GRID_COLS) * 100;
         $isFullWidth = $gridPos['w'] === self::GRID_COLS;
         
         // Expandable blocks (tables, totals) should not have min-height constraints
-        $isExpandable = in_array($block['type'], ['table', 'total']);
+        $isExpandable = in_array($blockType, ['table', 'total', 'invoice-details']);
         
-        $className = $isFullWidth ? 'block full-width' : 'block';
+        // CSS classes for targeting
+        $classes = ['block', "block-{$blockType}"];
+        if ($isFullWidth) {
+            $classes[] = 'full-width';
+        }
         
         $styles = [];
         if (!$isFullWidth) {
@@ -465,69 +473,99 @@ HTML;
         $blockStyles = $this->generateBlockStyles($block);
         $styles = array_merge($styles, $blockStyles);
         
+        $classAttr = implode(' ', $classes);
         $styleAttr = !empty($styles) ? ' style="' . implode('; ', $styles) . ';"' : '';
 
-        return "<div class=\"{$className}\"{$styleAttr}>{$content}</div>\n";
+        return "<div id=\"{$blockId}\" class=\"{$classAttr}\"{$styleAttr}>{$content}</div>\n";
+    }
+
+    /**
+     * Generate a unique block ID if not provided
+     */
+    private function generateBlockId(string $type): string
+    {
+        static $counter = 0;
+        $counter++;
+        return "{$type}-{$counter}";
     }
 
     /**
      * Render block content based on type
      */
-    public function renderBlockContent(array $block): string
+    private function renderBlockContent(array $block, string $blockId): string
     {
         $type = $block['type'];
         $props = $block['properties'];
 
         return match($type) {
-            'text' => $this->renderText($props),
-            'logo', 'image' => $this->renderImage($props, $type),
-            'company-info' => $this->renderCompanyInfo($props),
-            'client-info' => $this->renderClientInfo($props),
-            'invoice-details' => $this->renderInvoiceDetails($props),
-            'table' => $this->renderTable($props),
-            'total' => $this->renderTotal($props),
-            'divider' => $this->renderDivider($props),
-            'spacer' => $this->renderSpacer($props),
-            'qrcode' => $this->renderQRCode($props),
-            'signature' => $this->renderSignature($props),
+            'text' => $this->renderText($props, $blockId),
+            'logo', 'image' => $this->renderImage($props, $type, $blockId),
+            'company-info' => $this->renderCompanyInfo($props, $blockId),
+            'client-info' => $this->renderClientInfo($props, $blockId),
+            'invoice-details' => $this->renderInvoiceDetails($props, $blockId),
+            'table' => $this->renderTable($props, $blockId),
+            'total' => $this->renderTotal($props, $blockId),
+            'divider' => $this->renderDivider($props, $blockId),
+            'spacer' => $this->renderSpacer($props, $blockId),
+            'qrcode' => $this->renderQRCode($props, $blockId),
+            'signature' => $this->renderSignature($props, $blockId),
             default => "<div>Unknown block: {$type}</div>"
         };
     }
 
     /**
      * TEXT BLOCK
+     * Renders multi-line text using div elements instead of br tags
      */
-    public function renderText(array $props): string
+    private function renderText(array $props, string $blockId): string
     {
-        $content = $this->escape($props['content'] ?? '');
+        $content = $props['content'] ?? '';
+        $lines = explode("\n", $content);
+        
+        $containerStyle = $this->buildStyle([
+            'font-size' => $props['fontSize'] ?? '14px',
+            'font-weight' => $props['fontWeight'] ?? 'normal',
+            'font-style' => $props['fontStyle'] ?? 'normal',
+            'color' => $props['color'] ?? '#000000',
+            'text-align' => $props['align'] ?? 'left',
+            'line-height' => $props['lineHeight'] ?? '1.5',
+        ]);
 
-        return sprintf(
-            '<div style="%s">%s</div>',
-            $this->buildStyle([
-                'font-size' => $props['fontSize'],
-                'font-weight' => $props['fontWeight'],
-                'color' => $props['color'],
-                'text-align' => $props['align'],
-                'line-height' => $props['lineHeight'],
-                'height' => '100%',
-                'display' => 'flex',
-                'align-items' => 'center',
-            ]),
-            nl2br($content)
-        );
+        $html = "<div class=\"text-content\" style=\"{$containerStyle}\">";
+        
+        foreach ($lines as $index => $line) {
+            $lineId = "{$blockId}-line-{$index}";
+            $escapedLine = $this->escape(trim($line));
+            
+            // Use span for inline elements, div for block-level lines
+            if (empty(trim($line))) {
+                $html .= "<div class=\"text-line text-line-empty\" id=\"{$lineId}\">&nbsp;</div>";
+            } else {
+                $html .= "<div class=\"text-line\" id=\"{$lineId}\">{$escapedLine}</div>";
+            }
+        }
+        
+        $html .= '</div>';
+        return $html;
     }
 
     /**
      * IMAGE/LOGO BLOCK
+     * Supports:
+     * - Base64 encoded images (data:image/...)
+     * - External URLs (https://...)
+     * - Variables for backend replacement ($company.logo)
      */
-    public function renderImage(array $props, string $type): string
+    private function renderImage(array $props, string $type, string $blockId): string
     {
         $source = $props['source'] ?? '';
+        $imageId = "{$blockId}-img";
 
         if (empty($source)) {
             $placeholder = $type === 'logo' ? 'Company Logo' : 'Image';
             return sprintf(
-                '<div style="%s">%s</div>',
+                '<div id="%s" class="image-placeholder" style="%s">%s</div>',
+                $imageId,
                 $this->buildStyle([
                     'width' => '100%',
                     'height' => '100%',
@@ -542,100 +580,342 @@ HTML;
             );
         }
 
+        // Determine the image source format
+        $imageSrc = $this->resolveImageSource($source);
+
         return sprintf(
-            '<div style="%s"><img src="%s" style="%s" alt="%s" /></div>',
+            '<div class="image-container" style="%s"><img id="%s" class="%s" src="%s" style="%s" alt="%s" /></div>',
             $this->buildStyle([
-                'text-align' => $props['align'],
+                'text-align' => $props['align'] ?? 'left',
                 'height' => '100%',
                 'display' => 'flex',
                 'align-items' => 'center',
-                'justify-content' => $props['align'],
+                'justify-content' => $props['align'] ?? 'left',
             ]),
-            $this->escape($source),
+            $imageId,
+            $type === 'logo' ? 'company-logo' : 'block-image',
+            $imageSrc,
             $this->buildStyle([
-                'max-width' => $props['maxWidth'],
-                'max-height' => '100%',
-                'object-fit' => $props['objectFit'],
+                'max-width' => $props['maxWidth'] ?? '100%',
+                'max-height' => $props['maxHeight'] ?? '100%',
+                'object-fit' => $props['objectFit'] ?? 'contain',
             ]),
-            $type
+            $this->escape($type)
         );
+    }
+
+    /**
+     * Resolve image source based on format
+     * - Base64: Return as-is (already embedded)
+     * - Variable ($company.logo): Return for backend replacement
+     * - URL: Escape and return
+     */
+    private function resolveImageSource(string $source): string
+    {
+        // Base64 encoded image - return as-is (don't escape)
+        if (str_starts_with($source, 'data:image/')) {
+            return $source;
+        }
+
+        // Variable for backend replacement - return as-is
+        if (str_starts_with($source, '$')) {
+            return $source;
+        }
+
+        // External URL - escape for HTML safety
+        return $this->escape($source);
     }
 
     /**
      * COMPANY INFO BLOCK
+     * Renders each field as a separate div for proper layout control
      */
-    public function renderCompanyInfo(array $props): string
+    private function renderCompanyInfo(array $props, string $blockId): string
     {
-        $content = $this->escape($props['content'] ?? '');
+        $content = $props['content'] ?? '';
+        $fieldConfigs = $props['fieldConfigs'] ?? null;
+        
+        $containerStyle = $this->buildStyle([
+            'font-size' => $props['fontSize'] ?? '12px',
+            'font-weight' => $props['fontWeight'] ?? 'normal',
+            'font-style' => $props['fontStyle'] ?? 'normal',
+            'line-height' => $props['lineHeight'] ?? '1.5',
+            'text-align' => $props['align'] ?? 'left',
+            'color' => $props['color'] ?? '#374151',
+        ]);
 
-        return sprintf(
-            '<div style="%s">%s</div>',
-            $this->buildStyle([
-                'font-size' => $props['fontSize'],
-                'line-height' => $props['lineHeight'],
-                'text-align' => $props['align'],
-                'color' => $props['color'],
-                'white-space' => 'pre-line',
-            ]),
-            nl2br($content)
-        );
+        $html = "<div class=\"company-info-content\" style=\"{$containerStyle}\">";
+        
+        if ($fieldConfigs && is_array($fieldConfigs)) {
+            // New structured format with fieldConfigs
+            foreach ($fieldConfigs as $index => $config) {
+                $fieldId = "{$blockId}-field-{$index}";
+                $prefix = $this->escape($config['prefix'] ?? '');
+                $variable = $config['variable'] ?? '';
+                $suffix = $this->escape($config['suffix'] ?? '');
+                
+                $html .= "<div class=\"info-field\" id=\"{$fieldId}\">";
+                if (!empty($prefix)) {
+                    $html .= "<span class=\"field-prefix\">{$prefix}</span>";
+                }
+                $html .= "<span class=\"field-value\">{$variable}</span>";
+                if (!empty($suffix)) {
+                    $html .= "<span class=\"field-suffix\">{$suffix}</span>";
+                }
+                $html .= "</div>";
+            }
+        } else {
+            // Legacy content string - split by lines
+            $lines = explode("\n", $content);
+            foreach ($lines as $index => $line) {
+                $line = trim($line);
+                if (empty($line)) {
+                    continue;
+                }
+                $fieldId = "{$blockId}-field-{$index}";
+                // Don't escape - may contain variables like $company.name
+                $html .= "<div class=\"info-field\" id=\"{$fieldId}\">{$line}</div>";
+            }
+        }
+        
+        $html .= '</div>';
+        return $html;
     }
 
     /**
      * CLIENT INFO BLOCK
+     * Renders with optional title and each field as a separate div
      */
-    public function renderClientInfo(array $props): string
+    private function renderClientInfo(array $props, string $blockId): string
     {
-        $content = $this->escape($props['content'] ?? '');
-        $html = '<div>';
+        $content = $props['content'] ?? '';
+        $fieldConfigs = $props['fieldConfigs'] ?? null;
+        
+        $html = '<div class="client-info-wrapper">';
 
+        // Optional title
         if ($props['showTitle'] ?? false) {
+            $titleId = "{$blockId}-title";
             $html .= sprintf(
-                '<div style="%s">%s</div>',
+                '<div id="%s" class="client-info-title" style="%s">%s</div>',
+                $titleId,
                 $this->buildStyle([
-                    'font-size' => $props['fontSize'],
-                    'font-weight' => $props['titleFontWeight'],
-                    'color' => $props['color'],
+                    'font-size' => $props['fontSize'] ?? '12px',
+                    'font-weight' => $props['titleFontWeight'] ?? 'bold',
+                    'color' => $props['color'] ?? '#374151',
                     'margin-bottom' => '8px',
                 ]),
                 $this->escape($props['title'] ?? '')
             );
         }
 
-        $html .= sprintf(
-            '<div style="%s">%s</div>',
-            $this->buildStyle([
-                'font-size' => $props['fontSize'],
-                'line-height' => $props['lineHeight'],
-                'text-align' => $props['align'],
-                'color' => $props['color'],
-                'white-space' => 'pre-line',
-            ]),
-            nl2br($content)
-        );
+        $containerStyle = $this->buildStyle([
+            'font-size' => $props['fontSize'] ?? '12px',
+            'font-weight' => $props['fontWeight'] ?? 'normal',
+            'font-style' => $props['fontStyle'] ?? 'normal',
+            'line-height' => $props['lineHeight'] ?? '1.5',
+            'text-align' => $props['align'] ?? 'left',
+            'color' => $props['color'] ?? '#374151',
+        ]);
 
+        $html .= "<div class=\"client-info-content\" style=\"{$containerStyle}\">";
+        
+        if ($fieldConfigs && is_array($fieldConfigs)) {
+            // New structured format with fieldConfigs
+            foreach ($fieldConfigs as $index => $config) {
+                $fieldId = "{$blockId}-field-{$index}";
+                $prefix = $this->escape($config['prefix'] ?? '');
+                $variable = $config['variable'] ?? '';
+                $suffix = $this->escape($config['suffix'] ?? '');
+                
+                $html .= "<div class=\"info-field\" id=\"{$fieldId}\">";
+                if (!empty($prefix)) {
+                    $html .= "<span class=\"field-prefix\">{$prefix}</span>";
+                }
+                $html .= "<span class=\"field-value\">{$variable}</span>";
+                if (!empty($suffix)) {
+                    $html .= "<span class=\"field-suffix\">{$suffix}</span>";
+                }
+                $html .= "</div>";
+            }
+        } else {
+            // Legacy content string - split by lines
+            $lines = explode("\n", $content);
+            foreach ($lines as $index => $line) {
+                $line = trim($line);
+                if (empty($line)) {
+                    continue;
+                }
+                $fieldId = "{$blockId}-field-{$index}";
+                // Don't escape - may contain variables like $client.name
+                $html .= "<div class=\"info-field\" id=\"{$fieldId}\">{$line}</div>";
+            }
+        }
+        
+        $html .= '</div>';
         $html .= '</div>';
         return $html;
     }
 
     /**
      * INVOICE DETAILS BLOCK
+     * Renders as a table with label/value pairs (similar to Total block)
+     * Supports both new 'items' array format and legacy 'content' string
      */
-    public function renderInvoiceDetails(array $props): string
+    private function renderInvoiceDetails(array $props, string $blockId): string
     {
-        $content = $this->escape($props['content'] ?? '');
+        $align = $props['align'] ?? 'left';
+        $fontSize = $props['fontSize'] ?? '12px';
+        $lineHeight = $props['lineHeight'] ?? '1.5';
+        $color = $props['color'] ?? '#374151';
+        $labelColor = $props['labelColor'] ?? '#6B7280';
+        $rowSpacing = $props['rowSpacing'] ?? '4px';
+        $labelWidth = $props['labelWidth'] ?? 'auto';
+        $displayAsGrid = $props['displayAsGrid'] ?? true;
 
-        return sprintf(
-            '<div style="%s">%s</div>',
-            $this->buildStyle([
-                'font-size' => $props['fontSize'],
-                'line-height' => $props['lineHeight'],
-                'text-align' => $props['align'],
-                'color' => $props['color'],
-                'white-space' => 'pre-line',
-            ]),
-            nl2br($content)
+        // Check if we have items array (new format) or content string (legacy)
+        $items = $props['items'] ?? null;
+        
+        $styleContext = [
+            'align' => $align,
+            'fontSize' => $fontSize,
+            'lineHeight' => $lineHeight,
+            'color' => $color,
+            'labelColor' => $labelColor,
+            'rowSpacing' => $rowSpacing,
+            'labelWidth' => $labelWidth,
+            'blockId' => $blockId,
+        ];
+        
+        if ($items && is_array($items) && $displayAsGrid) {
+            return $this->renderInvoiceDetailsTable($items, $styleContext);
+        }
+
+        // Legacy format: parse content string
+        $content = $props['content'] ?? '';
+        
+        if ($displayAsGrid && !empty($content)) {
+            $parsedItems = $this->parseInvoiceDetailsContent($content);
+            return $this->renderInvoiceDetailsTable($parsedItems, $styleContext);
+        }
+
+        // Fallback: render each line as a div
+        $lines = explode("\n", $content);
+        $html = "<div class=\"invoice-details-content\">";
+        foreach ($lines as $index => $line) {
+            $line = trim($line);
+            if (empty($line)) {
+                continue;
+            }
+            $lineId = "{$blockId}-line-{$index}";
+            $html .= "<div class=\"details-line\" id=\"{$lineId}\" style=\"font-size: {$fontSize}; line-height: {$lineHeight}; color: {$color};\">{$line}</div>";
+        }
+        $html .= '</div>';
+        return $html;
+    }
+
+    /**
+     * Parse legacy content string into items array
+     */
+    private function parseInvoiceDetailsContent(string $content): array
+    {
+        $items = [];
+        $lines = explode("\n", $content);
+        
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line)) {
+                continue;
+            }
+            
+            $colonPos = strpos($line, ':');
+            if ($colonPos !== false) {
+                $label = trim(substr($line, 0, $colonPos + 1));
+                $variable = trim(substr($line, $colonPos + 1));
+                $items[] = [
+                    'label' => $label,
+                    'variable' => $variable,
+                    'show' => true,
+                ];
+            } else {
+                $items[] = [
+                    'label' => '',
+                    'variable' => $line,
+                    'show' => true,
+                ];
+            }
+        }
+        
+        return $items;
+    }
+
+    /**
+     * Render invoice details as a table with IDs for CSS targeting
+     */
+    private function renderInvoiceDetailsTable(array $items, array $styles): string
+    {
+        $blockId = $styles['blockId'] ?? 'invoice-details';
+        $tableId = "{$blockId}-table";
+        
+        $tableAlign = match($styles['align']) {
+            'right' => 'margin-left: auto;',
+            'center' => 'margin: 0 auto;',
+            default => '',
+        };
+
+        $html = sprintf(
+            '<table id="%s" class="invoice-details-table" style="border-collapse: collapse; %s"><tbody>',
+            $tableId,
+            $tableAlign
         );
+
+        $rowIndex = 0;
+        foreach ($items as $item) {
+            if (!($item['show'] ?? true)) {
+                continue;
+            }
+
+            $label = $item['label'] ?? '';
+            $variable = $item['variable'] ?? '';
+            $rowId = "{$blockId}-row-{$rowIndex}";
+
+            $html .= "<tr id=\"{$rowId}\" class=\"details-row\">";
+
+            // Label cell
+            $html .= sprintf(
+                '<td class="details-label" style="%s">%s</td>',
+                $this->buildStyle([
+                    'font-size' => $styles['fontSize'],
+                    'line-height' => $styles['lineHeight'],
+                    'color' => $styles['labelColor'],
+                    'text-align' => $styles['align'] === 'right' ? 'right' : 'left',
+                    'padding-bottom' => $styles['rowSpacing'],
+                    'padding-right' => '12px',
+                    'white-space' => 'nowrap',
+                    'width' => $styles['labelWidth'],
+                ]),
+                $this->escape($label)
+            );
+
+            // Value cell
+            $html .= sprintf(
+                '<td class="details-value" style="%s">%s</td>',
+                $this->buildStyle([
+                    'font-size' => $styles['fontSize'],
+                    'line-height' => $styles['lineHeight'],
+                    'color' => $styles['color'],
+                    'text-align' => $styles['align'] === 'right' ? 'right' : 'left',
+                    'padding-bottom' => $styles['rowSpacing'],
+                ]),
+                $variable
+            );
+
+            $html .= '</tr>';
+            $rowIndex++;
+        }
+
+        $html .= '</tbody></table>';
+        return $html;
     }
 
     /**
@@ -644,15 +924,17 @@ HTML;
      * Column fields use "item.field" notation (e.g., "item.product_key").
      * The entire table body is wrapped in <ninja> tags with Twig loop syntax.
      */
-    public function renderTable(array $props): string
+    private function renderTable(array $props, string $blockId): string
     {
         $columns = $props['columns'];
+        $tableId = "{$blockId}-table";
         $borderStyle = ($props['showBorders'] ?? true)
             ? "1px solid {$props['borderColor']}"
             : 'none';
 
         $html = sprintf(
-            '<table style="%s">',
+            '<table id="%s" class="line-items-table" style="%s">',
+            $tableId,
             $this->buildStyle([
                 'width' => '100%',
                 'border-collapse' => 'collapse',
@@ -662,7 +944,8 @@ HTML;
 
         // Header
         $html .= sprintf(
-            '<thead><tr style="%s">',
+            '<thead><tr id="%s-header" class="table-header" style="%s">',
+            $blockId,
             $this->buildStyle([
                 'background' => $props['headerBg'],
                 'color' => $props['headerColor'],
@@ -670,9 +953,11 @@ HTML;
             ])
         );
 
-        foreach ($columns as $col) {
+        foreach ($columns as $colIndex => $col) {
+            $colId = "{$blockId}-col-{$colIndex}";
             $html .= sprintf(
-                '<th style="%s">%s</th>',
+                '<th id="%s" class="table-header-cell" style="%s">%s</th>',
+                $colId,
                 $this->buildStyle([
                     'padding' => $props['padding'],
                     'text-align' => $col['align'],
@@ -686,7 +971,7 @@ HTML;
         $html .= '</tr></thead>';
 
         // Body - wrapped in <ninja> tags for Twig processing
-        $html .= '<tbody>';
+        $html .= '<tbody class="table-body">';
         $html .= '<ninja>';
         $html .= '{% set invoice = invoices|first %}';
         $html .= '{% for item in invoice.line_items %}';
@@ -694,20 +979,19 @@ HTML;
         // Alternate row background using Twig
         if ($props['alternateRows'] ?? false) {
             $html .= sprintf(
-                '<tr style="background: {{ loop.index is even ? \'%s\' : \'%s\' }};">',
+                '<tr class="table-row" style="background: {{ loop.index is even ? \'%s\' : \'%s\' }};">',
                 $this->escape($props['alternateRowBg']),
                 $this->escape($props['rowBg'])
             );
         } else {
-            $html .= sprintf('<tr style="background: %s;">', $props['rowBg']);
+            $html .= sprintf('<tr class="table-row" style="background: %s;">', $props['rowBg']);
         }
 
         foreach ($columns as $col) {
-            // Convert "item.field" to Twig variable "{{ item.field }}"
             $twigVar = '{{ ' . $col['field'] . ' }}';
             
             $html .= sprintf(
-                '<td style="%s">%s</td>',
+                '<td class="table-cell" style="%s">%s</td>',
                 $this->buildStyle([
                     'padding' => $props['padding'],
                     'text-align' => $col['align'],
@@ -728,9 +1012,10 @@ HTML;
     /**
      * TOTAL BLOCK
      */
-    public function renderTotal(array $props): string
+    private function renderTotal(array $props, string $blockId): string
     {
-        // Use table for proper label/value alignment
+        $tableId = "{$blockId}-table";
+        
         $tableAlign = match($props['align']) {
             'right' => 'margin-left: auto;',
             'center' => 'margin: 0 auto;',
@@ -742,8 +1027,13 @@ HTML;
         $valuePadding = $props['valuePadding'] ?? null;
         $valueMinWidth = $props['valueMinWidth'] ?? null;
 
-        $html = sprintf('<table style="border-collapse: collapse; %s"><tbody>', $tableAlign);
+        $html = sprintf(
+            '<table id="%s" class="totals-table" style="border-collapse: collapse; %s"><tbody>',
+            $tableId,
+            $tableAlign
+        );
 
+        $rowIndex = 0;
         foreach ($props['items'] as $item) {
             if (!($item['show'] ?? true)) {
                 continue;
@@ -751,6 +1041,10 @@ HTML;
 
             $isTotal = $item['isTotal'] ?? false;
             $isBalance = $item['isBalance'] ?? false;
+            $rowId = "{$blockId}-row-{$rowIndex}";
+            $rowClass = 'totals-row';
+            if ($isTotal) $rowClass .= ' totals-row-total';
+            if ($isBalance) $rowClass .= ' totals-row-balance';
 
             $fontSize = $isTotal ? $props['totalFontSize'] : $props['fontSize'];
             $fontWeight = $isTotal ? $props['totalFontWeight'] : 'normal';
@@ -760,12 +1054,14 @@ HTML;
                 : ($isTotal ? $props['totalColor'] : $props['amountColor']);
 
             $html .= sprintf(
-                '<tr style="font-size: %s; font-weight: %s;">',
+                '<tr id="%s" class="%s" style="font-size: %s; font-weight: %s;">',
+                $rowId,
+                $rowClass,
                 $fontSize,
                 $fontWeight
             );
 
-            // Label cell - apply user padding if set, otherwise use defaults
+            // Label cell
             $labelStyles = [
                 'color' => $props['labelColor'],
                 'text-align' => 'right',
@@ -773,19 +1069,19 @@ HTML;
             ];
             if ($labelPadding) {
                 $labelStyles['padding'] = $labelPadding;
-                $labelStyles['padding-right'] = $gap; // Override right padding with gap
+                $labelStyles['padding-right'] = $gap;
             } else {
                 $labelStyles['padding-right'] = $gap;
                 $labelStyles['padding-bottom'] = $props['spacing'];
             }
 
             $html .= sprintf(
-                '<td style="%s">%s:</td>',
+                '<td class="totals-label" style="%s">%s:</td>',
                 $this->buildStyle($labelStyles),
                 $this->escape($item['label'])
             );
 
-            // Value cell - apply user padding if set, otherwise use defaults
+            // Value cell
             $valueStyles = [
                 'color' => $valueColor,
                 'text-align' => 'right',
@@ -801,12 +1097,13 @@ HTML;
             }
 
             $html .= sprintf(
-                '<td style="%s">%s</td>',
+                '<td class="totals-value" style="%s">%s</td>',
                 $this->buildStyle($valueStyles),
-                $item['field'] // Keep variable like $invoice.total as-is
+                $item['field']
             );
 
             $html .= '</tr>';
+            $rowIndex++;
         }
 
         $html .= '</tbody></table>';
@@ -816,10 +1113,11 @@ HTML;
     /**
      * DIVIDER BLOCK
      */
-    public function renderDivider(array $props): string
+    private function renderDivider(array $props, string $blockId): string
     {
         return sprintf(
-            '<hr style="%s" />',
+            '<hr id="%s-hr" class="block-divider" style="%s" />',
+            $blockId,
             $this->buildStyle([
                 'border' => 'none',
                 'border-top' => "{$props['thickness']} {$props['style']} {$props['color']}",
@@ -832,10 +1130,11 @@ HTML;
     /**
      * SPACER BLOCK
      */
-    public function renderSpacer(array $props): string
+    private function renderSpacer(array $props, string $blockId): string
     {
         return sprintf(
-            '<div style="%s"></div>',
+            '<div id="%s-spacer" class="block-spacer" style="%s"></div>',
+            $blockId,
             $this->buildStyle(['height' => $props['height']])
         );
     }
@@ -844,10 +1143,11 @@ HTML;
      * QR CODE BLOCK
      * Backend should replace {{QR_CODE:data}} with actual QR code image
      */
-    public function renderQRCode(array $props): string
+    private function renderQRCode(array $props, string $blockId): string
     {
         return sprintf(
-            '<div style="%s">{{QR_CODE:%s}}</div>',
+            '<div id="%s-qr" class="qr-code-container" style="%s">{{QR_CODE:%s}}</div>',
+            $blockId,
             $this->buildStyle(['text-align' => $props['align']]),
             $props['data'] ?? '$invoice.public_url'
         );
@@ -856,18 +1156,19 @@ HTML;
     /**
      * SIGNATURE BLOCK
      */
-    public function renderSignature(array $props): string
+    private function renderSignature(array $props, string $blockId): string
     {
         $html = sprintf(
-            '<div style="%s">',
+            '<div id="%s-signature" class="signature-container" style="%s">',
+            $blockId,
             $this->buildStyle(['text-align' => $props['align']])
         );
 
-        $html .= '<div style="margin-bottom: 40px;"></div>';
+        $html .= '<div class="signature-space" style="margin-bottom: 40px;"></div>';
 
         if ($props['showLine'] ?? true) {
             $html .= sprintf(
-                '<div style="%s"></div>',
+                '<div class="signature-line" style="%s"></div>',
                 $this->buildStyle([
                     'border-top' => '1px solid #000',
                     'width' => '200px',
@@ -878,7 +1179,7 @@ HTML;
         }
 
         $html .= sprintf(
-            '<div style="%s">%s</div>',
+            '<div class="signature-label" style="%s">%s</div>',
             $this->buildStyle([
                 'font-size' => $props['fontSize'],
                 'color' => $props['color'],
@@ -904,7 +1205,7 @@ HTML;
     /**
      * Convert grid coordinates to absolute pixels
      */
-    public function gridToPixels(array $gridPosition): array
+    private function gridToPixels(array $gridPosition): array
     {
         $x = $gridPosition['x'];
         $y = $gridPosition['y'];
@@ -934,7 +1235,7 @@ HTML;
     /**
      * Format position styles for absolute positioning
      */
-    public function formatPositionStyle(array $position): string
+    private function formatPositionStyle(array $position): string
     {
         return $this->buildStyle([
             'left' => $position['left'] . 'px',
@@ -947,7 +1248,7 @@ HTML;
     /**
      * Build inline CSS style string from array
      */
-    public function buildStyle(array $styles): string
+    private function buildStyle(array $styles): string
     {
         $parts = [];
 
@@ -963,7 +1264,7 @@ HTML;
     /**
      * Calculate total document height
      */
-    public function calculateDocumentHeight(array $blocks): int
+    private function calculateDocumentHeight(array $blocks): int
     {
         if (empty($blocks)) {
             return 1122; // A4 height at 96dpi (297mm)
@@ -986,7 +1287,7 @@ HTML;
     /**
      * Escape HTML special characters
      */
-    public function escape(string $text): string
+    private function escape(string $text): string
     {
         return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
     }
