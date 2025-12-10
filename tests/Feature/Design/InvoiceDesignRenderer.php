@@ -1,6 +1,7 @@
 <?php
 
 namespace Tests\Feature\Design;
+
 /**
  * Converts Invoice Builder JSON design to HTML/CSS layout
  *
@@ -115,7 +116,7 @@ class InvoiceDesignRenderer
     /**
      * Group blocks into rows based on similar Y positions
      */
-    private function groupBlocksIntoRows(array $blocks): array
+    public function groupBlocksIntoRows(array $blocks): array
     {
         $rows = [];
         $currentRow = [];
@@ -145,7 +146,7 @@ class InvoiceDesignRenderer
     /**
      * Render a row of blocks
      */
-    private function renderRow(array $blocks): string
+    public function renderRow(array $blocks): string
     {
         $blocksHTML = '';
         foreach ($blocks as $block) {
@@ -189,7 +190,7 @@ class InvoiceDesignRenderer
     /**
      * Get CSS page size string based on settings
      */
-    private function getPageSizeCSS(): string
+    public function getPageSizeCSS(): string
     {
         $pageSize = $this->pageSettings['pageSize'] ?? 'a4';
         $orientation = $this->pageSettings['orientation'] ?? 'portrait';
@@ -210,7 +211,7 @@ class InvoiceDesignRenderer
     /**
      * Get CSS page margins string based on settings
      */
-    private function getPageMarginsCSS(): string
+    public function getPageMarginsCSS(): string
     {
         $top = $this->pageSettings['marginTop'] ?? '10mm';
         $right = $this->pageSettings['marginRight'] ?? '10mm';
@@ -223,7 +224,7 @@ class InvoiceDesignRenderer
     /**
      * Generate complete HTML document structure with flow-based CSS
      */
-    private function generateDocument(string $content): string
+    public function generateDocument(string $content): string
     {
         $padding = self::PADDING_V . 'px ' . self::PADDING_H . 'px';
         $marginBottom = self::MARGIN_V . 'px';
@@ -365,7 +366,7 @@ HTML;
     /**
      * Generate CSS styles from block.properties.styles
      */
-    private function generateBlockStyles(array $block): array
+    public function generateBlockStyles(array $block): array
     {
         $props = $block['properties'] ?? [];
         $styles = $props['styles'] ?? [];
@@ -437,7 +438,7 @@ HTML;
     /**
      * Render a single block with flow-based layout
      */
-    private function renderBlock(array $block): string
+    public function renderBlock(array $block): string
     {
         $gridPos = $block['gridPosition'];
         $content = $this->renderBlockContent($block);
@@ -472,7 +473,7 @@ HTML;
     /**
      * Render block content based on type
      */
-    private function renderBlockContent(array $block): string
+    public function renderBlockContent(array $block): string
     {
         $type = $block['type'];
         $props = $block['properties'];
@@ -496,7 +497,7 @@ HTML;
     /**
      * TEXT BLOCK
      */
-    private function renderText(array $props): string
+    public function renderText(array $props): string
     {
         $content = $this->escape($props['content'] ?? '');
 
@@ -519,7 +520,7 @@ HTML;
     /**
      * IMAGE/LOGO BLOCK
      */
-    private function renderImage(array $props, string $type): string
+    public function renderImage(array $props, string $type): string
     {
         $source = $props['source'] ?? '';
 
@@ -563,7 +564,7 @@ HTML;
     /**
      * COMPANY INFO BLOCK
      */
-    private function renderCompanyInfo(array $props): string
+    public function renderCompanyInfo(array $props): string
     {
         $content = $this->escape($props['content'] ?? '');
 
@@ -583,7 +584,7 @@ HTML;
     /**
      * CLIENT INFO BLOCK
      */
-    private function renderClientInfo(array $props): string
+    public function renderClientInfo(array $props): string
     {
         $content = $this->escape($props['content'] ?? '');
         $html = '<div>';
@@ -620,7 +621,7 @@ HTML;
     /**
      * INVOICE DETAILS BLOCK
      */
-    private function renderInvoiceDetails(array $props): string
+    public function renderInvoiceDetails(array $props): string
     {
         $content = $this->escape($props['content'] ?? '');
 
@@ -643,7 +644,7 @@ HTML;
      * Column fields use "item.field" notation (e.g., "item.product_key").
      * The entire table body is wrapped in <ninja> tags with Twig loop syntax.
      */
-    private function renderTable(array $props): string
+    public function renderTable(array $props): string
     {
         $columns = $props['columns'];
         $borderStyle = ($props['showBorders'] ?? true)
@@ -727,7 +728,7 @@ HTML;
     /**
      * TOTAL BLOCK
      */
-    private function renderTotal(array $props): string
+    public function renderTotal(array $props): string
     {
         // Use table for proper label/value alignment
         $tableAlign = match($props['align']) {
@@ -815,7 +816,7 @@ HTML;
     /**
      * DIVIDER BLOCK
      */
-    private function renderDivider(array $props): string
+    public function renderDivider(array $props): string
     {
         return sprintf(
             '<hr style="%s" />',
@@ -831,7 +832,7 @@ HTML;
     /**
      * SPACER BLOCK
      */
-    private function renderSpacer(array $props): string
+    public function renderSpacer(array $props): string
     {
         return sprintf(
             '<div style="%s"></div>',
@@ -843,7 +844,7 @@ HTML;
      * QR CODE BLOCK
      * Backend should replace {{QR_CODE:data}} with actual QR code image
      */
-    private function renderQRCode(array $props): string
+    public function renderQRCode(array $props): string
     {
         return sprintf(
             '<div style="%s">{{QR_CODE:%s}}</div>',
@@ -855,7 +856,7 @@ HTML;
     /**
      * SIGNATURE BLOCK
      */
-    private function renderSignature(array $props): string
+    public function renderSignature(array $props): string
     {
         $html = sprintf(
             '<div style="%s">',
@@ -903,7 +904,7 @@ HTML;
     /**
      * Convert grid coordinates to absolute pixels
      */
-    private function gridToPixels(array $gridPosition): array
+    public function gridToPixels(array $gridPosition): array
     {
         $x = $gridPosition['x'];
         $y = $gridPosition['y'];
@@ -933,7 +934,7 @@ HTML;
     /**
      * Format position styles for absolute positioning
      */
-    private function formatPositionStyle(array $position): string
+    public function formatPositionStyle(array $position): string
     {
         return $this->buildStyle([
             'left' => $position['left'] . 'px',
@@ -946,7 +947,7 @@ HTML;
     /**
      * Build inline CSS style string from array
      */
-    private function buildStyle(array $styles): string
+    public function buildStyle(array $styles): string
     {
         $parts = [];
 
@@ -962,7 +963,7 @@ HTML;
     /**
      * Calculate total document height
      */
-    private function calculateDocumentHeight(array $blocks): int
+    public function calculateDocumentHeight(array $blocks): int
     {
         if (empty($blocks)) {
             return 1122; // A4 height at 96dpi (297mm)
@@ -985,7 +986,7 @@ HTML;
     /**
      * Escape HTML special characters
      */
-    private function escape(string $text): string
+    public function escape(string $text): string
     {
         return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
     }

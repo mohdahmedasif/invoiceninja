@@ -1,213 +1,231 @@
 {
-    "blocks": [
-      {
-        "id": "logo-1765268278392",
-        "type": "logo",
-        "gridPosition": {
-          "x": 3,
-          "y": 0,
-          "w": 6,
-          "h": 2
-        },
-        "properties": {
-          "source": "$company.logo",
-          "align": "center",
-          "maxWidth": "150px",
-          "objectFit": "contain"
-        }
+  "blocks": [
+    {
+      "id": "logo-1765268278392",
+      "type": "logo",
+      "gridPosition": {
+        "x": 3,
+        "y": 0,
+        "w": 6,
+        "h": 2
       },
-      {
-        "id": "company-info-1765268293389",
-        "type": "company-info",
-        "gridPosition": {
-          "x": 0,
-          "y": 2,
-          "w": 4,
-          "h": 3
-        },
-        "properties": {
-          "content": "$company.name\n$company.address\n$company.city_state_postal\n$company.phone\n$company.email",
-          "fontSize": "12px",
-          "lineHeight": "1.6",
-          "align": "left",
-          "color": "#374151"
-        }
-      },
-      {
-        "id": "client-info-1765268300017",
-        "type": "client-info",
-        "gridPosition": {
-          "x": 8,
-          "y": 2,
-          "w": 4,
-          "h": 3
-        },
-        "properties": {
-          "content": "$client.name\n$client.address\n$client.city_state_postal\n$client.phone\n$client.email",
-          "fontSize": "12px",
-          "lineHeight": "1.6",
-          "align": "left",
-          "color": "#374151",
-          "showTitle": true,
-          "title": "Bill To:",
-          "titleFontWeight": "bold"
-        }
-      },
-      {
-        "id": "divider-1765268318961",
-        "type": "divider",
-        "gridPosition": {
-          "x": 0,
-          "y": 5,
-          "w": 12,
-          "h": 1
-        },
-        "properties": {
-          "thickness": "1px",
-          "color": "#E5E7EB",
-          "style": "solid",
-          "marginTop": "10px",
-          "marginBottom": "10px"
-        }
-      },
-      {
-        "id": "invoice-details-1765268323354",
-        "type": "invoice-details",
-        "gridPosition": {
-          "x": 9,
-          "y": 6,
-          "w": 3,
-          "h": 3
-        },
-        "properties": {
-          "content": "Invoice #: $invoice.number\nDate: $invoice.date\nDue Date: $invoice.due_date\nPO Number: $invoice.po_number",
-          "fontSize": "12px",
-          "lineHeight": "1.8",
-          "align": "left",
-          "color": "#374151",
-          "labelColor": "#6B7280",
-          "showLabels": true
-        }
-      },
-      {
-        "id": "table-1765268328782",
-        "type": "table",
-        "gridPosition": {
-          "x": 0,
-          "y": 9,
-          "w": 12,
-          "h": 3
-        },
-        "properties": {
-          "columns": [
-            {
-              "id": "product_key",
-              "header": "Item",
-              "field": "item.product_key",
-              "width": "25%",
-              "align": "left"
-            },
-            {
-              "id": "notes",
-              "header": "Description",
-              "field": "item.notes",
-              "width": "30%",
-              "align": "left"
-            },
-            {
-              "id": "quantity",
-              "header": "Qty",
-              "field": "item.quantity",
-              "width": "10%",
-              "align": "center"
-            },
-            {
-              "id": "cost",
-              "header": "Rate",
-              "field": "item.cost",
-              "width": "15%",
-              "align": "right"
-            },
-            {
-              "id": "line_total",
-              "header": "Amount",
-              "field": "item.line_total",
-              "width": "15%",
-              "align": "right"
-            }
-          ],
-          "headerBg": "#F3F4F6",
-          "headerColor": "#111827",
-          "headerFontWeight": "bold",
-          "rowBg": "#FFFFFF",
-          "alternateRowBg": "#F9FAFB",
-          "borderColor": "#E5E7EB",
-          "fontSize": "12px",
-          "padding": "8px",
-          "showBorders": true,
-          "alternateRows": true
-        }
-      },
-      {
-        "id": "total-1765268486405",
-        "type": "total",
-        "gridPosition": {
-          "x": 6,
-          "y": 12,
-          "w": 6,
-          "h": 6
-        },
-        "properties": {
-          "items": [
-            {
-              "label": "Subtotal",
-              "field": "$invoice.subtotal",
-              "show": true
-            },
-            {
-              "label": "Discount",
-              "field": "$invoice.discount",
-              "show": true
-            },
-            {
-              "label": "Tax",
-              "field": "$invoice.tax",
-              "show": true
-            },
-            {
-              "label": "Total",
-              "field": "$invoice.total",
-              "show": true,
-              "isTotal": true
-            },
-            {
-              "label": "Amount Paid",
-              "field": "$invoice.paid_to_date",
-              "show": true
-            },
-            {
-              "label": "Balance Due",
-              "field": "$invoice.balance",
-              "show": true,
-              "isBalance": true
-            }
-          ],
-          "fontSize": "13px",
-          "align": "right",
-          "labelColor": "#6B7280",
-          "amountColor": "#111827",
-          "totalFontSize": "18px",
-          "totalFontWeight": "bold",
-          "totalColor": "#111827",
-          "balanceColor": "#DC2626",
-          "spacing": "8px",
-          "labelPadding": "",
-          "valuePadding": "",
-          "labelValueGap": "20px",
-          "valueMinWidth": "",
-          "showLabels": true
-        }
+      "properties": {
+        "source": "$company.logo",
+        "align": "center",
+        "maxWidth": "150px",
+        "objectFit": "contain"
       }
-    ],
-    "templateId": "modern"
-  }
+    },
+    {
+      "id": "company-info-1765268293389",
+      "type": "company-info",
+      "gridPosition": {
+        "x": 0,
+        "y": 2,
+        "w": 4,
+        "h": 3
+      },
+      "properties": {
+        "content": "$company.name\n$company.address\n$company.city_state_postal\n$company.phone\n$company.email",
+        "fontSize": "12px",
+        "lineHeight": "1.6",
+        "align": "left",
+        "color": "#374151"
+      }
+    },
+    {
+      "id": "client-info-1765268300017",
+      "type": "client-info",
+      "gridPosition": {
+        "x": 8,
+        "y": 2,
+        "w": 4,
+        "h": 3
+      },
+      "properties": {
+        "content": "$client.name\n$client.address\n$client.city_state_postal\n$client.phone\n$client.email",
+        "fontSize": "12px",
+        "lineHeight": "1.6",
+        "align": "left",
+        "color": "#374151",
+        "showTitle": true,
+        "title": "Bill To:",
+        "titleFontWeight": "bold"
+      }
+    },
+    {
+      "id": "divider-1765268318961",
+      "type": "divider",
+      "gridPosition": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 1
+      },
+      "properties": {
+        "thickness": "1px",
+        "color": "#E5E7EB",
+        "style": "solid",
+        "marginTop": "10px",
+        "marginBottom": "10px"
+      }
+    },
+    {
+      "id": "invoice-details-1765268323354",
+      "type": "invoice-details",
+      "gridPosition": {
+        "x": 0,
+        "y": 6,
+        "w": 3,
+        "h": 3
+      },
+      "properties": {
+        "content": "Invoice #: $invoice.number\nDate: $invoice.date\nPO Number: $invoice.po_number\nDue Date: $invoice.due_date\nAmount: $invoice.amount",
+        "fontSize": "12px",
+        "lineHeight": "1.8",
+        "align": "left",
+        "color": "#374151",
+        "labelColor": "#6B7280",
+        "showLabels": true
+      }
+    },
+    {
+      "id": "table-1765268328782",
+      "type": "table",
+      "gridPosition": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 3
+      },
+      "properties": {
+        "columns": [
+          {
+            "id": "product_key",
+            "header": "Item",
+            "field": "item.product_key",
+            "width": "25%",
+            "align": "left"
+          },
+          {
+            "id": "notes",
+            "header": "Description",
+            "field": "item.notes",
+            "width": "30%",
+            "align": "left"
+          },
+          {
+            "id": "quantity",
+            "header": "Qty",
+            "field": "item.quantity",
+            "width": "10%",
+            "align": "center"
+          },
+          {
+            "id": "cost",
+            "header": "Rate",
+            "field": "item.cost",
+            "width": "15%",
+            "align": "right"
+          },
+          {
+            "id": "line_total",
+            "header": "Amount",
+            "field": "item.line_total",
+            "width": "15%",
+            "align": "right"
+          }
+        ],
+        "headerBg": "#F3F4F6",
+        "headerColor": "#111827",
+        "headerFontWeight": "bold",
+        "rowBg": "#FFFFFF",
+        "alternateRowBg": "#F9FAFB",
+        "borderColor": "#E5E7EB",
+        "fontSize": "12px",
+        "padding": "8px",
+        "showBorders": true,
+        "alternateRows": true
+      }
+    },
+    {
+      "id": "total-1765268486405",
+      "type": "total",
+      "gridPosition": {
+        "x": 6,
+        "y": 12,
+        "w": 6,
+        "h": 6
+      },
+      "properties": {
+        "items": [
+          {
+            "label": "Subtotal",
+            "field": "$invoice.subtotal",
+            "show": true
+          },
+          {
+            "label": "Discount",
+            "field": "$invoice.discount",
+            "show": true
+          },
+          {
+            "label": "Tax",
+            "field": "$invoice.tax",
+            "show": true
+          },
+          {
+            "label": "Total",
+            "field": "$invoice.total",
+            "show": true,
+            "isTotal": true
+          },
+          {
+            "label": "Amount Paid",
+            "field": "$invoice.paid_to_date",
+            "show": true
+          },
+          {
+            "label": "Balance Due",
+            "field": "$invoice.balance",
+            "show": true,
+            "isBalance": true
+          }
+        ],
+        "fontSize": "13px",
+        "align": "right",
+        "labelColor": "#6B7280",
+        "amountColor": "#111827",
+        "totalFontSize": "18px",
+        "totalFontWeight": "bold",
+        "totalColor": "#111827",
+        "balanceColor": "#DC2626",
+        "spacing": "8px",
+        "labelPadding": "",
+        "valuePadding": "",
+        "labelValueGap": "20px",
+        "valueMinWidth": "",
+        "showLabels": true
+      }
+    },
+    {
+      "id": "text-1765327448954",
+      "type": "text",
+      "gridPosition": {
+        "x": 0,
+        "y": 12,
+        "w": 6,
+        "h": 4
+      },
+      "properties": {
+        "content": "private notes generally go here.",
+        "fontSize": "16px",
+        "fontWeight": "normal",
+        "lineHeight": "1.5",
+        "color": "#000000",
+        "align": "left"
+      }
+    }
+  ],
+  "templateId": "modern"
+}
