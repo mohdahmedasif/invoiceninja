@@ -23,7 +23,7 @@ class Helpers
 {
     use MakesDates;
 
-    public static function sharedEmailVariables(?Client $client, array $settings = null): array
+    public static function sharedEmailVariables(?Client $client, ?array $settings = null): array
     {
         if (! $client) {
             $elements['signature'] = '';
