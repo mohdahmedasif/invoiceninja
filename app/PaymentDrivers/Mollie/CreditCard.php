@@ -183,6 +183,7 @@ class CreditCard implements LivewireMethodInterface
 
         if (property_exists($payment_hash->data, 'shouldStoreToken') && $payment_hash->data->shouldStoreToken) {
             try {
+                /** @var \Mollie\Api\Resources\Mandate[] $mandates */
                 $mandates = \iterator_to_array($this->mollie->gateway->mandates->listForId($payment_hash->data->mollieCustomerId));
             } catch (\Mollie\Api\Exceptions\ApiException $e) {
                 return $this->processUnsuccessfulPayment($e);

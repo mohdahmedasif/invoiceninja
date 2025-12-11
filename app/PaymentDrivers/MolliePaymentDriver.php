@@ -420,6 +420,8 @@ class MolliePaymentDriver extends BaseDriver
             return (new CreditCard($this))->processSuccessfulPayment($payment);
         } catch (\Mollie\Api\Exceptions\ApiException $e) {
             return (new CreditCard($this))->processUnsuccessfulPayment($e);
+        } catch(\Throwable $e){
+            nlog("Mollie:: Failure - ? Duplicate Payment? - {$e->getMessage()}");
         }
     }
 
