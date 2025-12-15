@@ -51,6 +51,7 @@ class CreditCard implements LivewireMethodInterface
      */
     public function paymentResponse(PaymentResponseRequest $request)
     {
+        
         $amount = $this->mollie->convertToMollieAmount((float) $this->mollie->payment_hash->data->amount_with_fee);
 
         $description = sprintf('%s: %s', ctrans('texts.invoices'), \implode(', ', collect($this->mollie->payment_hash->invoices())->pluck('invoice_number')->toArray()));
@@ -101,7 +102,7 @@ class CreditCard implements LivewireMethodInterface
                         return redirect()->away($payment->getCheckoutUrl());
                     }
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 return $this->processUnsuccessfulPayment($e);
             }
         }
@@ -161,9 +162,6 @@ class CreditCard implements LivewireMethodInterface
             if ($payment->status === 'open') {
                 $this->mollie->payment_hash->withData('payment_id', $payment->id);
 
-                nlog("Mollie");
-                nlog($payment);
-
                 if (!$payment->getCheckoutUrl()) {
                     return render('gateways.mollie.mollie_placeholder');
                 } else {
@@ -183,9 +181,15 @@ class CreditCard implements LivewireMethodInterface
 
         if (property_exists($payment_hash->data, 'shouldStoreToken') && $payment_hash->data->shouldStoreToken) {
             try {
+                /** @var \Mollie\Api\Resources\Mandate[] $mandates */
                 $mandates = \iterator_to_array($this->mollie->gateway->mandates->listForId($payment_hash->data->mollieCustomerId));
+
             } catch (\Mollie\Api\Exceptions\ApiException $e) {
                 return $this->processUnsuccessfulPayment($e);
+            }
+
+            if(empty($mandates)){
+                return render('gateways.mollie.mollie_placeholder');
             }
 
             $payment_meta = new \stdClass();
@@ -223,7 +227,7 @@ class CreditCard implements LivewireMethodInterface
         return redirect()->route('client.payments.show', ['payment' => $this->mollie->encodePrimaryKey($payment_record->id)]);
     }
 
-    public function processUnsuccessfulPayment(\Exception $e)
+    public function processUnsuccessfulPayment(\Throwable $e)
     {
         $this->mollie->sendFailureMail($e->getMessage());
 

@@ -12,27 +12,28 @@
 
 namespace App\PaymentDrivers;
 
-use App\Http\Requests\ClientPortal\Payments\PaymentResponseRequest;
-use App\Http\Requests\Gateways\Mollie\Mollie3dsRequest;
-use App\Http\Requests\Payments\PaymentWebhookRequest;
-use App\Jobs\Util\SystemLogger;
 use App\Models\Client;
-use App\Models\ClientGatewayToken;
-use App\Models\GatewayType;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\SystemLog;
+use App\Models\GatewayType;
 use App\Models\PaymentHash;
 use App\Models\PaymentType;
-use App\Models\SystemLog;
-use App\PaymentDrivers\Mollie\Bancontact;
-use App\PaymentDrivers\Mollie\BankTransfer;
-use App\PaymentDrivers\Mollie\CreditCard;
-use App\PaymentDrivers\Mollie\IDEAL;
-use App\PaymentDrivers\Mollie\KBC;
+use App\Jobs\Util\SystemLogger;
 use App\Utils\Traits\MakesHash;
-use Illuminate\Support\Facades\Validator;
-use Mollie\Api\Exceptions\ApiException;
 use Mollie\Api\MollieApiClient;
+use App\Models\ClientGatewayToken;
+use App\PaymentDrivers\BaseDriver;
+use App\PaymentDrivers\Mollie\KBC;
+use App\PaymentDrivers\Mollie\IDEAL;
+use Mollie\Api\Exceptions\ApiException;
+use App\PaymentDrivers\Mollie\Bancontact;
+use App\PaymentDrivers\Mollie\CreditCard;
+use Illuminate\Support\Facades\Validator;
+use App\PaymentDrivers\Mollie\BankTransfer;
+use App\Http\Requests\Payments\PaymentWebhookRequest;
+use App\Http\Requests\Gateways\Mollie\Mollie3dsRequest;
+use App\Http\Requests\ClientPortal\Payments\PaymentResponseRequest;
 
 class MolliePaymentDriver extends BaseDriver
 {
@@ -287,7 +288,9 @@ class MolliePaymentDriver extends BaseDriver
     {
         // Allow app to catch up with webhook request.
         // sleep(4);
-        usleep(rand(1500000, 4000000));
+        nlog("Mollie:: processWebhookRequest");
+        // nlog($request->all());
+        usleep(rand(1500000, 2000000));
 
         $validator = Validator::make($request->all(), [
             'id' => ['required', 'starts_with:tr'],
@@ -365,11 +368,16 @@ class MolliePaymentDriver extends BaseDriver
 
                     $record->service()->deletePayment(false); 
 
+                    $this->sendFailureMail($payment->details->failureMessage ?? "There was a problem processing your payment.");
+                    
+                }
+                else {
+                    $response = SystemLog::EVENT_GATEWAY_SUCCESS;
                 }
 
                 $record->status_id = $codes[$payment->status];
                 $record->save();
-                $response = SystemLog::EVENT_GATEWAY_SUCCESS;
+                
             }
 
             SystemLogger::dispatch(
@@ -383,6 +391,9 @@ class MolliePaymentDriver extends BaseDriver
 
             return response()->json([], 200);
         } catch (ApiException $e) {
+            return response()->json(['message' => $e->getMessage(), 'gatewayStatusCode' => $e->getCode()], 500);
+        } catch(\Throwable $e){
+            nlog("Mollie:: Failure - In payment Response? - {$e->getMessage()}");
             return response()->json(['message' => $e->getMessage(), 'gatewayStatusCode' => $e->getCode()], 500);
         }
     }
@@ -420,7 +431,7 @@ class MolliePaymentDriver extends BaseDriver
             return (new CreditCard($this))->processSuccessfulPayment($payment);
         } catch (\Mollie\Api\Exceptions\ApiException $e) {
             return (new CreditCard($this))->processUnsuccessfulPayment($e);
-        }
+        } 
     }
 
     public function detach(ClientGatewayToken $token)
