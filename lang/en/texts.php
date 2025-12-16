@@ -5644,10 +5644,6 @@ $lang = array(
     'verifactu_cancellation_send_success' => 'Invoice cancellation for :invoice sent to AEAT successfully',
     'verifactu_cancellation_send_failure' => 'Invoice cancellation for :invoice failed to send to AEAT :notes',
     'verifactu' => 'Verifactu',
-    'activity_150' => 'E-Invoice :invoice for :client sent to AEAT successfully',
-    'activity_151' => 'E-Invoice :invoice for :client failed to send to AEAT :notes',
-    'activity_152' => 'Invoice cancellation for :invoice sent to AEAT successfully',
-    'activity_153' => 'Invoice cancellation for :invoice failed to send to AEAT :notes',
     'justify' => 'Justify',
     'outdent' => 'Outdent',
     'indent' => 'Indent',
@@ -5669,6 +5665,17 @@ $lang = array(
     'enable_e_invoice_received_notification' => 'Enable E-Invoice Received Notification',
     'enable_e_invoice_received_notification_help' => 'Receive an email notification when a new E-Invoice is received.',
     'price_changes' => 'Plan Price Changes from January 1st 2026',
+    'notification_quote_rejected_subject' => 'Quote :quote was rejected by :client',
+    'notification_quote_rejected' => 'The following client :client rejected Quote :quote for :amount :notes.',
+    'activity_150' => 'Account was deleted :notes',
+    'activity_151' => 'Client :notes was merged into :client by :user',
+    'activity_152' => 'Vendor :notes was merged into :vendor by :user',
+    'activity_153' => 'Client :notes was purged by :user',
+    'activity_154' => 'E-Invoice :invoice for :client sent to AEAT successfully',
+    'activity_155' => 'E-Invoice :invoice for :client failed to send to AEAT :notes',
+    'activity_156' => 'Invoice cancellation for :invoice sent to AEAT successfully',
+    'activity_157' => 'Invoice cancellation for :invoice failed to send to AEAT :notes',
+    'activity_158' => 'Quote :quote was rejected by :client :notes',
 );
 
 return $lang;

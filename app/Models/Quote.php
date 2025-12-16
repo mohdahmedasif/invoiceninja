@@ -213,6 +213,8 @@ class Quote extends BaseModel
 
     public const STATUS_CONVERTED = 4;
 
+    public const STATUS_REJECTED = 5;
+    
     public const STATUS_EXPIRED = -1;
 
     public function toSearchableArray()
