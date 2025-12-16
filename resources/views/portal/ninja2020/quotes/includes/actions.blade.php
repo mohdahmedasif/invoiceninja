@@ -29,18 +29,15 @@
                 @yield('quote-not-approved-right-side')
                 <div class="inline-flex rounded-md shadow-sm mr-2">
                     <button type="button"
-                        onclick="document.querySelector('#approve-form [name=action]').value='approve'; setTimeout(() => this.disabled = true, 0); return true;"
                         class="button button-primary bg-primary"
                         id="approve-button">{{ ctrans('texts.approve') }}</button>
                 </div>
 
-                <div class="inline-flex rounded-md shadow-sm ">
+                <div class="inline-flex rounded-md shadow-sm">
                     <button type="button"
-                        onclick="document.querySelector('#reject-form [name=action]').value='reject'; setTimeout(() => this.disabled = true, 0); return true;"
                         class="button button-secondary bg-red-500 text-white hover:bg-red-600"
                         id="reject-button">{{ ctrans('texts.reject') }}</button>
                 </div>
-
             </div>
         </div>
     </div>

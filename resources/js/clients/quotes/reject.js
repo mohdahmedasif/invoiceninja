@@ -68,6 +68,14 @@ class Reject {
                 this.hideRejectModal();
             });
         }
+
+        // Handle backdrop click to close modal (Clic en fondo para cerrar modal)
+        const rejectModalBackdrop = document.getElementById('reject-modal-backdrop');
+        if (rejectModalBackdrop) {
+            rejectModalBackdrop.addEventListener('click', () => {
+                this.hideRejectModal();
+            });
+        }
     }
 }
 

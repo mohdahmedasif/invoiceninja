@@ -361,7 +361,7 @@
     "src": "resources/js/clients/quotes/approve.js"
   },
   "resources/js/clients/quotes/reject.js": {
-    "file": "assets/reject-dae85928.js",
+    "file": "assets/reject-9868e19a.js",
     "isEntry": true,
     "src": "resources/js/clients/quotes/reject.js"
   },

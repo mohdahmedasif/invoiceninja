@@ -95,9 +95,12 @@
     @include('portal.ninja2020.invoices.includes.signature')
 @endsection
 
-@push('head')
+@push('footer')
     @vite('resources/js/clients/quotes/approve.js')
     @vite('resources/js/clients/quotes/reject.js')
+@endpush
+
+@push('head')
     <script type="text/javascript" defer>
 
     document.addEventListener('DOMContentLoaded', () => {
