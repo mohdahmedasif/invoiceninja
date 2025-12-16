@@ -384,6 +384,8 @@ class Quote extends BaseModel
                 return '<h5><span class="badge badge-danger">'.ctrans('texts.expired').'</span></h5>';
             case self::STATUS_CONVERTED:
                 return '<h5><span class="badge badge-light">'.ctrans('texts.converted').'</span></h5>';
+            case self::STATUS_REJECTED:
+                return '<h5><span class="badge badge-danger">'.ctrans('texts.rejected').'</span></h5>';
             default:
                 return '<h5><span class="badge badge-light">'.ctrans('texts.draft').'</span></h5>';
         }
@@ -402,6 +404,8 @@ class Quote extends BaseModel
                 return ctrans('texts.expired');
             case self::STATUS_CONVERTED:
                 return ctrans('texts.converted');
+            case self::STATUS_REJECTED:
+                return ctrans('texts.rejected');
             default:
                 return ctrans('texts.draft');
 
@@ -416,6 +420,15 @@ class Quote extends BaseModel
     public function isApproved(): bool
     {
         if ($this->status_id === $this::STATUS_APPROVED) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function isRejected(): bool
+    {
+        if ($this->status_id === $this::STATUS_REJECTED) {
             return true;
         }
 

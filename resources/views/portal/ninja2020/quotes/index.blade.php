@@ -22,6 +22,10 @@
             <button type="submit" onclick="setTimeout(() => this.disabled = true, 0); return true;"
                 class="button button-primary bg-primary" name="action"
                 value="approve">{{ ctrans('texts.approve') }}</button>
+
+            <button type="submit" onclick="setTimeout(() => this.disabled = true, 0); return true;"
+                class="button button-primary bg-primary" name="action"
+                value="reject">{{ ctrans('texts.reject') }}</button>
         </form>
     </div>
 

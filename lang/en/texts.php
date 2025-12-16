@@ -5635,7 +5635,6 @@ $lang = array(
     'einvoice_received_subject' => 'E-Invoice/s Received',
     'einvoice_received_body' => 'You have received :count new E-Invoice/s.<br><br>Login to view.',
     'download_files_too_large' => 'Some files were too large to attach directly to the email. Please use the links below to download these individually.',
-
     'restore_disabled_verifactu' => 'You cannot restore an invoice once it has been deleted',
     'delete_disabled_verifactu' => 'You cannot delete an invoice once it has been cancelled or modified',
     'rectify' => 'Rectificar',
@@ -5676,6 +5675,13 @@ $lang = array(
     'activity_156' => 'Invoice cancellation for :invoice sent to AEAT successfully',
     'activity_157' => 'Invoice cancellation for :invoice failed to send to AEAT :notes',
     'activity_158' => 'Quote :quote was rejected by :client :notes',
+    'quotes_with_status_sent_can_be_rejected' => 'Only quotes with "Sent" status can be rejected.',
+    'reject' => 'Reject',
+    'rejected' => 'Rejected',
+    'reject_quote' => 'Reject Quote',
+    'reject_quote_confirmation' => 'Are you sure you want to reject this quote?',
+    'reason' => 'Reason',
+    'enter_reason' => 'Enter a reason...',
 );
 
 return $lang;

@@ -223,6 +223,7 @@ use App\Listeners\Invoice\InvoiceRestoredActivity;
 use App\Listeners\Invoice\InvoiceReversedActivity;
 use App\Listeners\Payment\PaymentRestoredActivity;
 use App\Listeners\Quote\QuoteApprovedNotification;
+use App\Listeners\Quote\QuoteRejectedNotification;
 use SocialiteProviders\Apple\AppleExtendSocialite;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use App\Events\Subscription\SubscriptionWasCreated;
@@ -574,6 +575,7 @@ class EventServiceProvider extends ServiceProvider
         ],
         QuoteWasRejected::class => [
             QuoteRejectedActivity::class,
+            QuoteRejectedNotification::class,
         ],
         QuoteWasUpdated::class => [
             QuoteUpdatedActivity::class,
