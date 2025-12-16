@@ -10,8 +10,6 @@
 
 class Reject {
     constructor() {
-        // Always show rejection modal for confirmation
-        // (Siempre mostrar modal de rechazo para confirmación)
     }
 
     submitForm() {
@@ -44,19 +42,14 @@ class Reject {
                 rejectButton.disabled = false;
             }, 2000);
 
-            // Always display the rejection modal for confirmation
-            // (Siempre mostrar el modal de rechazo para confirmación)
             this.displayRejectModal();
         });
 
-        // Handle confirm rejection button (Manejar botón de confirmar rechazo)
         const rejectConfirmButton = document.getElementById('reject-confirm-button');
         if (rejectConfirmButton) {
             rejectConfirmButton.addEventListener('click', () => {
                 const rejectReason = document.getElementById('reject_reason');
                 
-                // Set user input value if provided (optional)
-                // (Establecer valor de entrada del usuario si se proporciona - opcional)
                 if (rejectReason) {
                     const userInputField = document.querySelector('#reject-form input[name="user_input"]');
                     if (userInputField) {
@@ -69,7 +62,6 @@ class Reject {
             });
         }
 
-        // Handle close/cancel button (Manejar botón de cerrar/cancelar)
         const rejectCloseButton = document.getElementById('reject-close-button');
         if (rejectCloseButton) {
             rejectCloseButton.addEventListener('click', () => {
