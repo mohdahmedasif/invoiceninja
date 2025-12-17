@@ -58,6 +58,9 @@ All Pro and Enterprise features from the hosted app are included in the source-a
 * [Stripe](https://stripe.com/)
 * [Postmark](https://postmarkapp.com/)
 
+### SDKs available for easier API consumption
+* [Go SDK](https://github.com/AshkanYarmoradi/go-invoice-ninja)
+
 ## [Advanced] Quick Hosting Setup
 
 In addition to the official [Invoice Ninja - Self-Hosted Installation Guide](https://invoiceninja.github.io/en/self-host-installation/) we have a few commands for you.
