@@ -60,7 +60,7 @@ class StoreSubscriptionRequest extends Request
             'refund_period' => 'bail|sometimes|numeric',
             'webhook_configuration' => 'bail|array',
             'webhook_configuration.post_purchase_url' => 'bail|sometimes|nullable|string',
-            'webhook_configuration.post_purchase_rest_method' => 'bail|sometimes|nullable|string',
+            'webhook_configuration.post_purchase_rest_method' => 'bail|sometimes|nullable|in:post,put',
             'webhook_configuration.post_purchase_headers' => 'bail|sometimes|array',
             'registration_required' => 'bail|sometimes|bool',
             'optional_recurring_product_ids' => 'bail|sometimes|nullable|string',
