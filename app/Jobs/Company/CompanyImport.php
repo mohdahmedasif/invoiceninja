@@ -1978,7 +1978,7 @@ class CompanyImport implements ShouldQueue
     private function transformId(string $resource, ?string $old): ?int
     {
 
-        if (empty($old) || $old == 'WjnegYbwZ1') {
+        if (empty($old) || in_array($old, ['WjnegYbwZ1', 'WjnegnldwZ'])) {
             return null;
         }
 
