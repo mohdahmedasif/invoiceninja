@@ -701,7 +701,7 @@ class StripePaymentDriver extends BaseDriver implements SupportsHeadlessInterfac
 
     public function processWebhookRequest(PaymentWebhookRequest $request)
     {
-        nlog($request->all());
+        // nlog($request->all());
         $webhook_secret = $this->company_gateway->getConfigField('webhookSecret');
  
         if ($webhook_secret) {

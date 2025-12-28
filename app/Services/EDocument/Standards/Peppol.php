@@ -12,11 +12,11 @@
 
 namespace App\Services\EDocument\Standards;
 
-use App\DataMapper\Tax\BaseRule;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\Product;
 use App\Helpers\Invoice\Taxer;
+use App\DataMapper\Tax\BaseRule;
 use App\Services\AbstractService;
 use App\Helpers\Invoice\InvoiceSum;
 use InvoiceNinja\EInvoice\EInvoice;
@@ -654,8 +654,10 @@ class Peppol extends AbstractService
             case Product::PRODUCT_TYPE_DIGITAL:
             case Product::PRODUCT_TYPE_PHYSICAL:
             case Product::PRODUCT_TYPE_SHIPPING:
-            case Product::PRODUCT_TYPE_REDUCED_TAX:
                 $tax_type = 'S';
+                break;
+            case Product::PRODUCT_TYPE_REDUCED_TAX:
+                $tax_type = 'AA';
                 break;
             case Product::PRODUCT_TYPE_EXEMPT:
                 $tax_type =  'E';
@@ -1405,7 +1407,7 @@ class Peppol extends AbstractService
         $tax_total = new TaxTotal();
         $taxes = $this->calc->getTaxMap();
 
-        if (count($taxes) < 1) {
+        if (count($taxes) < 1 || (count($taxes) == 1 && $this->invoice->total_taxes == 0)) {
 
             $tax_amount = new TaxAmount();
             $tax_amount->currencyID = $this->invoice->client->currency()->code;
@@ -1458,7 +1460,8 @@ class Peppol extends AbstractService
             // Required: TaxAmount (BT-110)
             $tax_amount = new TaxAmount();
             $tax_amount->currencyID = $this->invoice->client->currency()->code;
-            $tax_amount->amount = (string)$grouped_tax['total'];
+            // $tax_amount->amount = (string)$grouped_tax['total'];
+            $tax_amount->amount = (string)round($this->invoice->total_taxes, 2);
             $tax_total->TaxAmount = $tax_amount;
 
             // Required: TaxSubtotal (BG-23)
@@ -1490,6 +1493,11 @@ class Peppol extends AbstractService
             $category_id = new ID();
             $category_id->value = $this->getTaxType($grouped_tax['tax_id']); // Standard rate
 
+            // Temp fix for reduced tax rate categorization.
+            if($grouped_tax['tax_rate'] < 15 && $grouped_tax['tax_rate'] >= 0) {
+                $category_id->value = 'AA';
+            }
+
             $tax_category->ID = $category_id;
 
             // Required: TaxCategory Rate (BT-119)
@@ -1504,7 +1512,8 @@ class Peppol extends AbstractService
             $tax_scheme->ID = $scheme_id;
             $tax_category->TaxScheme = $tax_scheme;
 
-            $tax_subtotal->TaxCategory = $this->globalTaxCategories[0];
+            $tax_subtotal->TaxCategory = $tax_category;
+            // $tax_subtotal->TaxCategory = $this->globalTaxCategories[0];
 
             $tax_total->TaxSubtotal[] = $tax_subtotal;
 
@@ -1533,8 +1542,8 @@ class Peppol extends AbstractService
 
                 $country_code = $this->invoice->client->country->iso_3166_2;
 
-                if (isset($this->ninja_invoice->company->tax_data->regions->EU->subregions->{$country_code}->vat_number)) {
-                    $this->override_vat_number = $this->ninja_invoice->company->tax_data->regions->EU->subregions->{$country_code}->vat_number;
+                if (isset($this->company->tax_data->regions->EU->subregions->{$country_code}->vat_number)) {
+                    $this->override_vat_number = $this->company->tax_data->regions->EU->subregions->{$country_code}->vat_number;
                 }
             }
         }
