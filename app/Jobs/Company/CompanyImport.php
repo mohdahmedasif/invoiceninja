@@ -1688,7 +1688,15 @@ try {
                         $key = $activity_invitation_key;
                     }
 
-                    $obj_array["{$value}"] = $this->transformId($key, $obj->{$value});
+                    if($class == 'App\Models\Activity'){
+
+                        if(isset($this->ids[$key][$obj->{$value}])) 
+                            $obj_array["{$value}"] = $this->ids[$key][$obj->{$value}];
+                    }
+                    else {
+                        $obj_array["{$value}"] = $this->transformId($key, $obj->{$value});
+                    }
+
                 }
             }
 
@@ -1995,7 +2003,7 @@ try {
             return null;
         }
 
-        if($resource == 'tasks' && in_array($old,  ['WjnegnldwZ','kQBeX5layK'])) {
+        if($resource == 'tasks' && in_array($old,  ['WjnegnldwZ','kQBeX5layK','MVyb895dvA','OpnelpJeKB'])) {
             return null;
         }
 
