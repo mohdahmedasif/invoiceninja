@@ -110,10 +110,8 @@ class InvoiceCheckOverdue implements ShouldQueue
             return;
         }
 
-        // Calculate the date range for "just became overdue" in the company's timezone
-        // We check for invoices whose due date was yesterday in the company's timezone
-        $yesterday_start = $now_in_company_tz->copy()->subDay()->startOfDay()->format('Y-m-d');
-        $yesterday_end = $now_in_company_tz->copy()->startOfDay()->subSecond()->format('Y-m-d');
+        // Yesterday's date in the company's timezone (Y-m-d format)
+        $yesterday = $now_in_company_tz->copy()->subDay()->format('Y-m-d');
 
         Invoice::query()
             ->where('company_id', $company->id)
@@ -126,21 +124,19 @@ class InvoiceCheckOverdue implements ShouldQueue
                        ->whereNull('deleted_at');
             })
             // Check for overdue conditions based on partial or full invoice
-            ->where(function ($query) use ($yesterday_start, $yesterday_end) {
+            ->where(function ($query) use ($yesterday) {
                 // Case 1: Partial payment is overdue (partial > 0 and partial_due_date was yesterday)
-                $query->where(function ($q) use ($yesterday_start, $yesterday_end) {
+                $query->where(function ($q) use ($yesterday) {
                     $q->where('partial', '>', 0)
-                      ->whereNotNull('partial_due_date')
-                      ->whereBetween('partial_due_date', [$yesterday_start, $yesterday_end]);
+                      ->where('partial_due_date', $yesterday);
                 })
                 // Case 2: Full invoice is overdue (partial == 0 and due_date was yesterday)
-                ->orWhere(function ($q) use ($yesterday_start, $yesterday_end) {
+                ->orWhere(function ($q) use ($yesterday) {
                     $q->where(function ($subq) {
                         $subq->where('partial', '=', 0)
                              ->orWhereNull('partial');
                     })
-                      ->whereNotNull('due_date')
-                      ->whereBetween('due_date', [$yesterday_start, $yesterday_end]);
+                      ->where('due_date', $yesterday);
                 });
             })
             ->cursor()
