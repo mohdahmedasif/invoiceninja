@@ -271,7 +271,7 @@ class EntityLevel implements EntityLevelInterface
         }
 
         //test legal entity id present
-        if (!is_int($company->legal_entity_id)) {
+        if(isset($company->legal_entity_id) && intval($company->legal_entity_id) > 0){
             $errors[] = ['field' => "You have not registered a legal entity id as yet."];
         }
 
