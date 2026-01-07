@@ -1108,6 +1108,24 @@ Código seguro de verificación (CSV): {$verifactu_log->status}";
             $container->appendChild($image);
         }
 
+        if($this->entity_string == 'invoice') {
+
+            foreach($this->entity->expense_documents() as $expense){
+                foreach($expense->documents()->where('is_public', true)->get() as $document){
+                    if (!$document->isImage()) {
+                        continue;
+                    }
+
+                    $image = $dom->createElement('img');
+
+                    $image->setAttribute('src', "data:image/png;base64,".base64_encode($document->compress()));
+                    $image->setAttribute('style', 'max-width: 50%; margin-top: 20px;');
+
+                    $container->appendChild($image);
+                }
+            }
+        }
+
         $dom->appendChild($container);
 
         $html = $dom->saveHTML();

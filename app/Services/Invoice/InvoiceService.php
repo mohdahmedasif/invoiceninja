@@ -566,8 +566,8 @@ class InvoiceService
             return $item;
         });
 
-        Task::query()->withTrashed()->whereIn('id', $tasks->pluck('task_id'))->update(['invoice_id' => $this->invoice->id]);
-        Expense::query()->withTrashed()->whereIn('id', $tasks->pluck('expense_id'))->update(['invoice_id' => $this->invoice->id]);
+        Task::query()->withTrashed()->where('company_id', $this->invoice->company_id)->whereIn('id', $tasks->pluck('task_id'))->update(['invoice_id' => $this->invoice->id]);
+        Expense::query()->withTrashed()->where('company_id', $this->invoice->company_id)->whereIn('id', $tasks->pluck('expense_id'))->update(['invoice_id' => $this->invoice->id]);
 
         return $this;
     }
