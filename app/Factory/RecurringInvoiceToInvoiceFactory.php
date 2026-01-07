@@ -69,7 +69,8 @@ class RecurringInvoiceToInvoiceFactory
         $invoice->design_id = $recurring_invoice->design_id;
         $invoice->e_invoice = self::transformEInvoice($recurring_invoice);
         $invoice->vendor_id = $recurring_invoice->vendor_id;
-
+        $invoice->location_id = $recurring_invoice->location_id;
+        
         return $invoice;
     }
 

@@ -613,6 +613,26 @@ class Mutator implements MutatorInterface
             $this->setEmailRouting($client_email);
         }
 
+
+        if(stripos($this->invoice->client->routing_id ?? '', ":") !== false){
+
+            $parts = explode(":", $this->invoice->client->routing_id);
+
+            if(count($parts) == 2){
+                $scheme = $parts[0];
+                $id = $parts[1];
+
+                if($this->storecove->discovery($id, $scheme)){
+                    $this->setStorecoveMeta($this->buildRouting([
+                        ["scheme" => $scheme, "id" => $id]
+                    ]));
+
+                    return $this;
+                }
+            }
+
+        }
+
         $code = $this->getClientRoutingCode();
         $identifier = false;
 

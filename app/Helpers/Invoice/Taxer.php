@@ -29,6 +29,12 @@ trait Taxer
 
     public function calcAmountLineTax($tax_rate, $amount)
     {
+        $tax_amount = ($amount * $tax_rate / 100);
+        
+        if($this->peppol_enabled) {
+            return $tax_amount;
+        }
+
         return $this->formatValue(($amount * $tax_rate / 100), 2);
     }
 
