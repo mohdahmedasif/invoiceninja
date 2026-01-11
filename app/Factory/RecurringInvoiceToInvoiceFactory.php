@@ -114,13 +114,19 @@ class RecurringInvoiceToInvoiceFactory
 
                         $end_date = $end_date->format('Y-m-d');
 
-                        $einvoice = new \InvoiceNinja\EInvoice\Models\Peppol\Invoice();
+                        // $einvoice = new \InvoiceNinja\EInvoice\Models\Peppol\Invoice();
+                        // $ip = new \InvoiceNinja\EInvoice\Models\Peppol\PeriodType\InvoicePeriod();
+                        // $ip->StartDate = new \DateTime($start_date);
+                        // $ip->EndDate = new \DateTime($end_date);
+                        // $einvoice->InvoicePeriod = [$ip];
 
-                        $ip = new \InvoiceNinja\EInvoice\Models\Peppol\PeriodType\InvoicePeriod();
-                        $ip->StartDate = new \DateTime($start_date);
-                        $ip->EndDate = new \DateTime($end_date);
-                        $einvoice->InvoicePeriod = [$ip];
+                        // 2026-01-12 - To prevent storing datetime objects in the database, we manually build the InvoicePeriod object
+                        $einvoice = new \stdClass();
 
+                        $invoice_period = new \stdClass();
+                        $invoice_period->StartDate = $start_date;
+                        $invoice_period->EndDate = $end_date;
+                        $einvoice->InvoicePeriod = [$invoice_period];
 
                         $stub = new \stdClass();
                         $stub->Invoice = $einvoice;

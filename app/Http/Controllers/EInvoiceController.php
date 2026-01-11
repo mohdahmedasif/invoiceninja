@@ -48,6 +48,7 @@ class EInvoiceController extends BaseController
         
         match ($request->entity) {
             'invoices' => $data = $el->checkInvoice($request->getEntity()),
+            'recurring_invoices' => $data = $el->checkRecurringInvoice($request->getEntity()),
             'clients' => $data = $el->checkClient($request->getEntity()),
             'companies' => $data = $el->checkCompany($request->getEntity()),
             default => $data['passes'] = false,
