@@ -391,7 +391,14 @@ class HtmlEngine
                 $data['$balance_due_dec'] = ['value' => sprintf("%01.2f", $this->entity->amount), 'label' => ctrans('texts.balance_due')];
                 $data['$balance_due_raw'] = ['value' => $this->entity->amount, 'label' => ctrans('texts.balance_due')];
                 $data['$amount_raw'] = ['value' => $this->entity->amount, 'label' => ctrans('texts.amount')];
-            } else {
+            } 
+            elseif($this->entity->status_id == 4 && $this->entity_string == 'invoice') {
+                $data['$balance_due'] = ['value' => Number::formatMoney(0, $this->client) ?: ' ', 'label' => ctrans('texts.balance_due')];
+                $data['$balance_due_dec'] = ['value' => sprintf("%01.2f", 0), 'label' => ctrans('texts.balance_due')];
+                $data['$balance_due_raw'] = ['value' => 0, 'label' => ctrans('texts.balance_due')];
+                $data['$amount_raw'] = ['value' => $this->entity->amount, 'label' => ctrans('texts.amount')];
+            }
+            else {
                 $data['$balance_due'] = ['value' => Number::formatMoney($this->entity->balance, $this->client) ?: ' ', 'label' => ctrans('texts.balance_due')];
                 $data['$balance_due_dec'] = ['value' => sprintf("%01.2f", $this->entity->balance), 'label' => ctrans('texts.balance_due')];
                 $data['$balance_due_raw'] = ['value' => $this->entity->balance, 'label' => ctrans('texts.balance_due')];
