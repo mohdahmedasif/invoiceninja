@@ -12,21 +12,24 @@
 
 namespace App\Jobs\Invoice;
 
-use App\Jobs\Mail\NinjaMailer;
-use App\Jobs\Mail\NinjaMailerJob;
-use App\Jobs\Mail\NinjaMailerObject;
-use App\Libraries\MultiDB;
-use App\Mail\Admin\InvoiceOverdueObject;
+use App\Utils\Ninja;
+use App\Utils\Number;
 use App\Models\Company;
 use App\Models\Invoice;
-use App\Utils\Traits\Notifications\UserNotifies;
+use App\Libraries\MultiDB;
 use Illuminate\Bus\Queueable;
+use App\Jobs\Mail\NinjaMailer;
+use Illuminate\Support\Carbon;
+use App\Utils\Traits\MakesDates;
+use App\Jobs\Mail\NinjaMailerJob;
+use App\Jobs\Mail\NinjaMailerObject;
+use Illuminate\Queue\SerializesModels;
+use App\Mail\Admin\InvoiceOverdueObject;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Carbon;
-use App\Utils\Ninja;
+use App\Mail\Admin\InvoiceOverdueSummaryObject;
+use App\Utils\Traits\Notifications\UserNotifies;
 
 class InvoiceCheckOverdue implements ShouldQueue
 {
@@ -35,6 +38,7 @@ class InvoiceCheckOverdue implements ShouldQueue
     use Queueable;
     use SerializesModels;
     use UserNotifies;
+    use MakesDates;
 
     /**
      * Create a new job instance.
@@ -113,7 +117,7 @@ class InvoiceCheckOverdue implements ShouldQueue
         // Yesterday's date in the company's timezone (Y-m-d format)
         $yesterday = $now_in_company_tz->copy()->subDay()->format('Y-m-d');
 
-        Invoice::query()
+        $overdue_invoices = Invoice::query()
             ->where('company_id', $company->id)
             ->whereIn('status_id', [Invoice::STATUS_SENT, Invoice::STATUS_PARTIAL])
             ->where('is_deleted', false)
@@ -140,14 +144,107 @@ class InvoiceCheckOverdue implements ShouldQueue
                 });
             })
             ->cursor()
-            ->each(function ($invoice) {
-                $this->notifyOverdueInvoice($invoice);
-            });
+            ->map(function ($invoice){
+
+                return [
+                    'id' => $invoice->id,
+                    'client' => $invoice->client->present()->name(),
+                    'number' => $invoice->number,
+                    'amount' => max($invoice->partial, $invoice->balance),
+                    'due_date' => $invoice->due_date,
+                    'formatted_amount' => Number::formatMoney($invoice->balance, $invoice->client),
+                    'formatted_due_date' => $this->translateDate($invoice->due_date, $invoice->company->date_format(), $invoice->company->locale()),
+                ];
+
+            })
+            ->toArray();
+
+            $this->sendOverdueNotifications($overdue_invoices, $company);
+            
+            // ->each(function ($invoice) {
+            //     $this->notifyOverdueInvoice($invoice);
+            // });
+    }
+
+    private function sendOverdueNotifications(array $overdue_invoices, Company $company): void
+    {
+        
+        if(empty($overdue_invoices)){
+            return;
+        }
+
+        $nmo = new NinjaMailerObject();
+        $nmo->company = $company;
+        $nmo->settings = $company->settings;
+
+        /* We loop through each user and determine whether they need to be notified */
+        foreach ($company->company_users as $company_user) {
+            /* The User */
+            $user = $company_user->user;
+
+            if (! $user) {
+                continue;
+            }
+
+            nlog($company_user->permissions);
+
+            $overdue_invoices_collection = $overdue_invoices;
+
+            $invoice = Invoice::withTrashed()->find($overdue_invoices[0]['id']);
+
+            $table_headers = [
+                'client' => ctrans('texts.client'),
+                'number' => ctrans('texts.invoice_number'),
+                'formatted_due_date' => ctrans('texts.due_date'),
+                'formatted_amount' => ctrans('texts.amount'),
+            ];
+
+            /** filter down the set if the user only has notifications for their own invoices */
+            if(isset($company_user->notifications->email) && is_array($company_user->notifications->email) && in_array('invoice_late_user', $company_user->notifications->email)){
+
+                $overdue_invoices_collection = collect($overdue_invoices)
+                            ->filter(function ($overdue_invoice) use ($user) {
+                                $invoice = Invoice::withTrashed()->find($overdue_invoice['id']);
+                                nlog([$invoice->user_id, $user->id, $invoice->assigned_user_id, $user->id]);
+                                return $invoice->user_id == $user->id || $invoice->assigned_user_id == $user->id;
+                        })
+                        ->toArray();
+
+                if(count($overdue_invoices_collection) === 0){
+                    continue;
+                }
+
+                $invoice = Invoice::withTrashed()->find(end($overdue_invoices_collection)['id']);
+
+            }
+
+            $nmo->mailable = new NinjaMailer((new InvoiceOverdueSummaryObject($overdue_invoices_collection, $table_headers, $company, $company_user->portalType()))->build());
+                
+            /* Returns an array of notification methods */
+            $methods = $this->findUserNotificationTypes(
+                $invoice->invitations()->first(),
+                $company_user,
+                'invoice',
+                ['all_notifications', 'invoice_late', 'invoice_late_all', 'invoice_late_user']
+            );
+
+
+            /* If one of the methods is email then we fire the mailer */
+            if (($key = array_search('mail', $methods)) !== false) {
+                unset($methods[$key]);
+
+                $nmo->to_user = $user;
+
+                NinjaMailerJob::dispatch($nmo);
+            }
+        }
+
     }
 
     /**
      * Send notifications for an overdue invoice to all relevant company users.
      */
+    /** @phpstan-ignore-next-line */
     private function notifyOverdueInvoice(Invoice $invoice): void
     {
         $nmo = new NinjaMailerObject();

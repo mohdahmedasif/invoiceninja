@@ -5684,6 +5684,8 @@ $lang = array(
     'reject_quote_confirmation' => 'Are you sure you want to reject this quote?',
     'reason' => 'Reason',
     'enter_reason' => 'Enter a reason...',
+    'notification_invoice_overdue_summary_subject' => 'Invoice Overdue Summary: :date',
+    'notification_invoice_overdue_summary' => 'The following invoices are overdue:',
 );
 
 return $lang;
