@@ -12,7 +12,7 @@
 
 namespace App\Services\EDocument\Standards\Validation\Peppol;
 
-use App\Exceptions\PeppolValidationException;
+use XSLTProcessor;
 use App\Models\Quote;
 use App\Models\Client;
 use App\Models\Credit;
@@ -20,11 +20,12 @@ use App\Models\Vendor;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\PurchaseOrder;
-use App\Services\EDocument\Standards\Peppol;
-use App\Services\EDocument\Standards\Validation\XsltDocumentValidator;
-use App\Services\EDocument\Standards\Validation\EntityLevelInterface;
+use App\Models\RecurringInvoice;
 use Illuminate\Support\Facades\App;
-use XSLTProcessor;
+use App\Services\EDocument\Standards\Peppol;
+use App\Exceptions\PeppolValidationException;
+use App\Services\EDocument\Standards\Validation\EntityLevelInterface;
+use App\Services\EDocument\Standards\Validation\XsltDocumentValidator;
 
 class EntityLevel implements EntityLevelInterface
 {
@@ -122,6 +123,11 @@ class EntityLevel implements EntityLevelInterface
 
         return $this->errors;
 
+    }
+
+    public function checkRecurringInvoice(RecurringInvoice $recurring_invoice): array
+    {
+        return ['passes' => true];
     }
 
     public function checkInvoice(Invoice $invoice): array

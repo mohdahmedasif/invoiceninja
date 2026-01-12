@@ -208,6 +208,8 @@ class HtmlEngine
         $data['$location.custom3'] = &$data['$location3'];
         $data['$location.custom4'] = &$data['$location4'];
 
+        $data['$term_days'] = ['value' => '', 'label' => ctrans('texts.payment_terms')];
+
         if ($this->entity_string == 'invoice' || $this->entity_string == 'recurring_invoice') {    
             
             if($this->client->peppolSendingEnabled() && $this->entity->amount < 0) {
@@ -217,6 +219,9 @@ class HtmlEngine
                 $data['$entity'] = ['value' => ctrans('texts.invoice'), 'label' => ctrans('texts.invoice')];
             }
             
+
+            $data['$term_days'] = ['value' => $this->client->getSetting('payment_terms'), 'label' => ctrans('texts.payment_terms')];
+
             $data['$number'] = ['value' => $this->entity->number ?: ' ', 'label' => ctrans('texts.invoice_number')];
             $data['$invoice'] = ['value' => $this->entity->number ?: ' ', 'label' => ctrans('texts.invoice_number')];
             $data['$number_short'] = ['value' => $this->entity->number ?: ' ', 'label' => ctrans('texts.invoice_number_short')];
@@ -275,6 +280,10 @@ class HtmlEngine
         }
 
         if ($this->entity_string == 'quote') {
+
+            
+            $data['$term_days'] = ['value' => $this->client->getSetting('valid_until'), 'label' => ctrans('texts.valid_until')];
+
             $data['$entity'] = ['value' => ctrans('texts.quote'), 'label' => ctrans('texts.quote')];
             $data['$number'] = ['value' => $this->entity->number ?: '', 'label' => ctrans('texts.quote_number')];
             $data['$number_short'] = ['value' => $this->entity->number ?: '', 'label' => ctrans('texts.quote_number_short')];
@@ -315,6 +324,10 @@ class HtmlEngine
         }
 
         if ($this->entity_string == 'credit') {
+
+            
+            $data['$term_days'] = ['value' => $this->client->getSetting('payment_terms'), 'label' => ctrans('texts.payment_terms')];
+
             $data['$entity'] = ['value' => ctrans('texts.credit'), 'label' => ctrans('texts.credit')];
             $data['$number'] = ['value' => $this->entity->number ?: '', 'label' => ctrans('texts.credit_number')];
             $data['$number_short'] = ['value' => $this->entity->number ?: '', 'label' => ctrans('texts.credit_number_short')];
@@ -378,7 +391,14 @@ class HtmlEngine
                 $data['$balance_due_dec'] = ['value' => sprintf("%01.2f", $this->entity->amount), 'label' => ctrans('texts.balance_due')];
                 $data['$balance_due_raw'] = ['value' => $this->entity->amount, 'label' => ctrans('texts.balance_due')];
                 $data['$amount_raw'] = ['value' => $this->entity->amount, 'label' => ctrans('texts.amount')];
-            } else {
+            } 
+            elseif($this->entity->status_id == 4 && $this->entity_string == 'invoice') {
+                $data['$balance_due'] = ['value' => Number::formatMoney(0, $this->client) ?: ' ', 'label' => ctrans('texts.balance_due')];
+                $data['$balance_due_dec'] = ['value' => sprintf("%01.2f", 0), 'label' => ctrans('texts.balance_due')];
+                $data['$balance_due_raw'] = ['value' => 0, 'label' => ctrans('texts.balance_due')];
+                $data['$amount_raw'] = ['value' => $this->entity->amount, 'label' => ctrans('texts.amount')];
+            }
+            else {
                 $data['$balance_due'] = ['value' => Number::formatMoney($this->entity->balance, $this->client) ?: ' ', 'label' => ctrans('texts.balance_due')];
                 $data['$balance_due_dec'] = ['value' => sprintf("%01.2f", $this->entity->balance), 'label' => ctrans('texts.balance_due')];
                 $data['$balance_due_raw'] = ['value' => $this->entity->balance, 'label' => ctrans('texts.balance_due')];

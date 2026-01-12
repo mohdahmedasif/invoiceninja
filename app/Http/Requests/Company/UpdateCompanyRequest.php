@@ -194,6 +194,10 @@ class UpdateCompanyRequest extends Request
             $input['session_timeout'] = 0;
         }
 
+        if($company->settings->e_invoice_type == 'VERIFACTU') {
+            $input['calculate_taxes'] = false;
+        }
+
         $this->replace($input);
     }
 

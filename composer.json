@@ -102,7 +102,7 @@
         "setasign/fpdi": "^2.6",
         "socialiteproviders/apple": "dev-master",
         "socialiteproviders/microsoft": "^4.1",
-        "sprain/swiss-qr-bill": "^4.3",
+        "sprain/swiss-qr-bill": "^5.2",
         "square/square": "30.0.0.*",
         "stripe/stripe-php": "^17",
         "symfony/brevo-mailer": "^7.1",

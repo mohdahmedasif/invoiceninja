@@ -1349,9 +1349,13 @@ class Peppol extends AbstractService
         if (isset($this->invoice->e_invoice->Invoice->InvoicePeriod[0]) &&
         isset($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->StartDate) &&
         isset($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->EndDate)) {
+
+            $start_date = isset($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->StartDate->date) ? $this->invoice->e_invoice->Invoice->InvoicePeriod[0]->StartDate->date :$this->invoice->e_invoice->Invoice->InvoicePeriod[0]->StartDate;
+            $end_date = isset($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->EndDate->date) ? $this->invoice->e_invoice->Invoice->InvoicePeriod[0]->EndDate->date : $this->invoice->e_invoice->Invoice->InvoicePeriod[0]->EndDate;
+
             $ip = new \InvoiceNinja\EInvoice\Models\Peppol\PeriodType\InvoicePeriod();
-            $ip->StartDate = new \DateTime($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->StartDate);
-            $ip->EndDate = new \DateTime($this->invoice->e_invoice->Invoice->InvoicePeriod[0]->EndDate);
+            $ip->StartDate = new \DateTime($start_date);
+            $ip->EndDate = new \DateTime($end_date);
             $this->p_invoice->InvoicePeriod = [$ip];
         }
 
