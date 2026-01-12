@@ -258,7 +258,15 @@ class UserRepository extends BaseRepository
                });
         }
     }
-
+    
+    /**
+     * purge a user and all of their data across
+     * all companies and accounts.
+     *
+     * @param  User $user
+     * @param  User $new_owner_user
+     * @return void
+     */
     public function purge(User $user, User $new_owner_user): void
     {
 
