@@ -966,12 +966,13 @@ class BaseImport
 
         NinjaMailerJob::dispatch($nmo, true);
 
+        /** Debug for import failures */
         if (Ninja::isHosted() && $this->store_import_for_research) {
 
             $content = [
-                'company_key' => $this->company->company_key,
-                'class_name' => class_basename($this),
-                'hash' => $this->hash,
+                'company_key - '. $this->company->company_key,
+                'class_name - ' . class_basename($this),
+                'hash - ' => $this->hash,
             ];
 
             $potential_imports = [
@@ -990,14 +991,12 @@ class BaseImport
             foreach ($potential_imports as $import) {
                 
                 if(Cache::has($this->hash.'-'.$import)) {
-                    // store on s3
-                    // Cache::put($this->hash.'-'.$import, Cache::get($this->hash.'-'.$import), 60*60*24*2);
+                    Cache::put($this->hash.'-'.$import, Cache::get($this->hash.'-'.$import), 60*60*24*2);
                 }
             }
 
             $this->company->notification(new GenericNinjaAdminNotification($content))->ninja();
 
-            
         }
     }
 
