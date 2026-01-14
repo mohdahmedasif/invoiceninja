@@ -112,11 +112,11 @@ class SwissQrGenerator
         // Add payment reference
         // This is what you will need to identify incoming payments.
 
-        if (stripos($this->invoice->number, "Live") === 0) {
+        if (stripos($this->invoice->number ?? '', "Live") === 0) {
             // we're currently in preview status. Let's give a dummy reference for now
             $invoice_number = "123456789";
         } else {
-            $tempInvoiceNumber = $this->invoice->number;
+            $tempInvoiceNumber = $this->invoice->number ?? '';
             $tempInvoiceNumber = preg_replace('/[^A-Za-z0-9]/', '', $tempInvoiceNumber);
             // $tempInvoiceNumber = substr($tempInvoiceNumber, 1);
 

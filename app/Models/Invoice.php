@@ -38,7 +38,7 @@ use App\Utils\Number;
  * App\Models\Invoice
  *
  * @property int $id
- * @property object|null $e_invoice
+ * @property object|array|null $e_invoice
  * @property int $client_id
  * @property int $user_id
  * @property int|null $location_id

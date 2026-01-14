@@ -65,7 +65,7 @@ class Peppol extends AbstractService
      *
      */
 
-    private ?string $override_vat_number;
+    private string $override_vat_number = '';
 
     /** @var array $InvoiceTypeCodes */
     private array $InvoiceTypeCodes = [
@@ -657,7 +657,8 @@ class Peppol extends AbstractService
                 $tax_type = 'S';
                 break;
             case Product::PRODUCT_TYPE_REDUCED_TAX:
-                $tax_type = 'AA';
+                // $tax_type = 'AA';
+                $tax_type = 'S'; //2026-01-14 - using AA breaks PEPPOL VALIDATION!!
                 break;
             case Product::PRODUCT_TYPE_EXEMPT:
                 $tax_type =  'E';
@@ -1032,18 +1033,18 @@ class Peppol extends AbstractService
         $party->PartyName[] = $party_name;
 
         if (strlen($this->company->settings->vat_number ?? '') > 1) {
-
+            
             $pi = new PartyIdentification();
             $vatID = new ID();
             $vatID->schemeID = $this->resolveScheme();
-            $vatID->value = $this->override_vat_number ?? preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->company->settings->vat_number); //todo if we are cross border - switch to the supplier local vat number
+            $vatID->value = strlen($this->override_vat_number ?? '') > 1 ? $this->override_vat_number : preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->company->settings->vat_number); //todo if we are cross border - switch to the supplier local vat number
 
             $pi->ID = $vatID;
             $party->PartyIdentification[] = $pi;
             $pts = new \InvoiceNinja\EInvoice\Models\Peppol\PartyTaxSchemeType\PartyTaxScheme();
 
             $companyID = new \InvoiceNinja\EInvoice\Models\Peppol\IdentifierType\CompanyID();
-            $companyID->value = $this->override_vat_number ?? preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->company->settings->vat_number);
+            $companyID->value = strlen($this->override_vat_number ?? '') > 1 ? $this->override_vat_number : preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->company->settings->vat_number); //todo if we are cross border - switch to the supplier local vat number
             $pts->CompanyID = $companyID;
 
             $ts = new TaxScheme();
@@ -1290,7 +1291,6 @@ class Peppol extends AbstractService
 
     /////////////////  Helper Methods /////////////////////////
 
-
     /**
      * setInvoiceDefaults
      *
@@ -1498,9 +1498,9 @@ class Peppol extends AbstractService
             $category_id->value = $this->getTaxType($grouped_tax['tax_id']); // Standard rate
 
             // Temp fix for reduced tax rate categorization.
-            if($grouped_tax['tax_rate'] < 15 && $grouped_tax['tax_rate'] >= 0) {
-                $category_id->value = 'AA';
-            }
+            // if($grouped_tax['tax_rate'] < 15 && $grouped_tax['tax_rate'] >= 0) {
+            //     $category_id->value = 'AA';
+            // }
 
             $tax_category->ID = $category_id;
 

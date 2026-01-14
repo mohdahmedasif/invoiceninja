@@ -166,7 +166,7 @@ class ProcessPostmarkWebhook implements ShouldQueue
 
     private function processOpen()
     {
-        $this->invitation->opened_date = now();
+        $this->invitation->opened_date = now()->setTimezone($this->invitation->company->timezone()->name);
         $this->invitation->saveQuietly();
 
         $data = array_merge($this->request, ['history' => $this->fetchMessage()]);

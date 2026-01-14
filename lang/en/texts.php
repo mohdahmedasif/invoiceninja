@@ -5687,6 +5687,8 @@ $lang = array(
     'notification_invoice_overdue_summary_subject' => 'Invoice Overdue Summary: :date',
     'notification_invoice_overdue_summary' => 'The following invoices are overdue:',
     'purge_user_confirmation' => 'Warning! This action will reassign all entities to the account owner and permanently delete the user across all companies and accounts. Are you sure you want to proceed?',
+    'peppol_sending_failed' => 'E-Invoice sending failed!',
+    'peppol_sending_success' => 'E-Invoice sent successfully!',
 );
 
 return $lang;

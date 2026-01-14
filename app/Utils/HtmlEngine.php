@@ -937,11 +937,10 @@ Código seguro de verificación (CSV): {$verifactu_log->status}";
         $tax_label = '';
 
         if (collect($this->entity->line_items)->contains('tax_id', \App\Models\Product::PRODUCT_TYPE_REVERSE_TAX)) {
-            $tax_label .= ctrans('texts.reverse_tax_info') . "<br>";
+            $tax_label .= ctrans('texts.reverse_tax_info') . " <br>";
         }
-
-        if ((int)$this->client->country_id !== (int)$this->company->settings->country_id) {
-            $tax_label .= ctrans('texts.intracommunity_tax_info') . "<br>";
+        else if ((int)$this->client->country_id !== (int)$this->company->settings->country_id) {
+            $tax_label .= ctrans('texts.intracommunity_tax_info') . " <br>";
 
             if ($this->entity_calc->getTotalTaxes() > 0) {
                 $tax_label = '';
