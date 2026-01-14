@@ -760,12 +760,10 @@ class Peppol extends AbstractService
         $this->globalTaxCategories = [$taxCategory];
 
         if ($this->tax_category_id == 'O' && isset($this->p_invoice->AccountingSupplierParty->Party->PartyTaxScheme)) {
-            nlog("unset 1");
             unset($this->p_invoice->AccountingSupplierParty->Party->PartyTaxScheme);
         }
 
         if ($this->tax_category_id == 'O' && isset($this->p_invoice->AccountingCustomerParty->Party->PartyTaxScheme)) {
-            nlog("unset 2");
             unset($this->p_invoice->AccountingCustomerParty->Party->PartyTaxScheme);
         }
 
@@ -1292,7 +1290,6 @@ class Peppol extends AbstractService
     }
 
     /////////////////  Helper Methods /////////////////////////
-
 
     /**
      * setInvoiceDefaults
