@@ -362,7 +362,7 @@ class ProcessPostmarkWebhook implements ShouldQueue
 
         try {
             $messageDetail = $postmark->getOutboundMessageDetails($message_id);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
 
             $postmark_secret = config('services.postmark-outlook.token');
             $postmark = new PostmarkClient($postmark_secret);
@@ -379,7 +379,6 @@ class ProcessPostmarkWebhook implements ShouldQueue
     {
 
         $messageDetail = $this->getRawMessage($message_id);
-
 
         $event = collect($messageDetail->messageevents)->first(function ($event) {
 
