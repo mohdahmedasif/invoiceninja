@@ -446,7 +446,6 @@ class ImportController extends Controller
 
         $csv = Reader::fromString($csvfile);
         
-        // $csv = Reader::createFromString($csvfile);
         $csvdelimiter = self::detectDelimiter($csvfile);
         $csv->setDelimiter($csvdelimiter);
         $stmt = new Statement();
