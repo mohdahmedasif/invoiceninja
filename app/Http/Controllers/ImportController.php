@@ -456,7 +456,7 @@ class ImportController extends Controller
             $headers = $data[0];
 
             // Remove Invoice Ninja headers
-            if (count($headers) && count($data) > 4) {
+            if (is_array($headers) && count($headers) > 0 && count($data) > 4) {
                 $firstCell = $headers[0];
 
                 if (strstr($firstCell, (string) config('ninja.app_name'))) {
