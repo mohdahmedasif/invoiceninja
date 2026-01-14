@@ -219,6 +219,9 @@ class StorecoveRouter
             $country = 'BE';
             $identifier = 'BE:VAT';
         }
+        elseif($country == 'GLN'){
+            return 'routing_id';
+        }
 
         $rules = $this->routing_rules[$country];
 
