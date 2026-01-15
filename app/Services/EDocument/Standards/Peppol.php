@@ -12,6 +12,7 @@
 
 namespace App\Services\EDocument\Standards;
 
+use App\Models\Credit;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\Product;
@@ -41,6 +42,7 @@ use InvoiceNinja\EInvoice\Models\Peppol\AmountType\TaxableAmount;
 use InvoiceNinja\EInvoice\Models\Peppol\PeriodType\InvoicePeriod;
 use InvoiceNinja\EInvoice\Models\Peppol\CodeType\IdentificationCode;
 use InvoiceNinja\EInvoice\Models\Peppol\InvoiceLineType\InvoiceLine;
+use InvoiceNinja\EInvoice\Models\Peppol\CreditNoteLineType\CreditNoteLine;
 use InvoiceNinja\EInvoice\Models\Peppol\TaxCategoryType\TaxCategory;
 use InvoiceNinja\EInvoice\Models\Peppol\TaxSubtotalType\TaxSubtotal;
 use InvoiceNinja\EInvoice\Models\Peppol\AmountType\TaxExclusiveAmount;
@@ -131,13 +133,17 @@ class Peppol extends AbstractService
 
     private InvoiceSum | InvoiceSumInclusive $calc;
 
-    private \InvoiceNinja\EInvoice\Models\Peppol\Invoice $p_invoice;
+    /** @var \InvoiceNinja\EInvoice\Models\Peppol\Invoice|\InvoiceNinja\EInvoice\Models\Peppol\CreditNote */
+    private \InvoiceNinja\EInvoice\Models\Peppol\Invoice | \InvoiceNinja\EInvoice\Models\Peppol\CreditNote $p_invoice;
 
     private ?\InvoiceNinja\EInvoice\Models\Peppol\Invoice $_client_settings;
 
     private ?\InvoiceNinja\EInvoice\Models\Peppol\Invoice $_company_settings;
 
     private EInvoice $e;
+
+    /** @var bool Flag to indicate if document is a Credit Note */
+    private bool $isCreditNote = false;
 
     private string $api_network = Storecove::class; // Storecove::class;
 
@@ -157,14 +163,38 @@ class Peppol extends AbstractService
 
     private array $errors = [];
 
-    public function __construct(public Invoice $invoice)
+    public function __construct(public Invoice | Credit $invoice)
     {
-
         $this->company = $invoice->company;
         $this->calc = $this->invoice->calc();
         $this->e = new EInvoice();
         $this->gateway = new $this->api_network();
+        $this->isCreditNote = $this->shouldBeCreditNote();
         $this->setSettings()->setInvoice();
+    }
+
+    /**
+     * Determine if the document should be a Credit Note
+     *
+     * Credit Note is used when:
+     * - The entity is a Credit model
+     * - The entity is an Invoice with a negative amount
+     *
+     * @return bool
+     */
+    private function shouldBeCreditNote(): bool
+    {
+        // Credit model = always credit note
+        if ($this->invoice instanceof Credit) {
+            return true;
+        }
+
+        // Negative invoice = credit note
+        if ($this->invoice instanceof Invoice && $this->invoice->amount < 0) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -200,13 +230,6 @@ class Peppol extends AbstractService
 
             $this->p_invoice->DocumentCurrencyCode = $this->invoice->client->currency()->code;
 
-            // if ($this->invoice->date && $this->invoice->due_date) {
-            //     $ip = new InvoicePeriod();
-            //     $ip->StartDate = new \DateTime($this->invoice->date);
-            //     $ip->EndDate = new \DateTime($this->invoice->due_date);
-            //     $this->p_invoice->InvoicePeriod = [$ip];
-            // }
-
             if ($this->invoice->project_id) {
                 $pr = new \InvoiceNinja\EInvoice\Models\Peppol\ProjectReferenceType\ProjectReference();
                 $id = new \InvoiceNinja\EInvoice\Models\Peppol\IdentifierType\ID();
@@ -215,15 +238,17 @@ class Peppol extends AbstractService
                 $this->p_invoice->ProjectReference = [$pr];
             }
 
-            /** Auto switch between Invoice / Credit based on the amount value */
-
-            $this->p_invoice->InvoiceTypeCode = ($this->invoice->amount >= 0) ? 380 : 381;
-
-            // $this->p_invoice->InvoiceTypeCode = 380;
+            /** Set type code and line items based on document type */
+            if ($this->isCreditNote) {
+                $this->p_invoice->CreditNoteTypeCode = 381;
+                $this->p_invoice->CreditNoteLine = $this->getCreditNoteLines();
+            } else {
+                $this->p_invoice->InvoiceTypeCode = 380;
+                $this->p_invoice->InvoiceLine = $this->getInvoiceLines();
+            }
 
             $this->p_invoice->AccountingSupplierParty = $this->getAccountingSupplierParty();
             $this->p_invoice->AccountingCustomerParty = $this->getAccountingCustomerParty();
-            $this->p_invoice->InvoiceLine = $this->getInvoiceLines();
             $this->p_invoice->AllowanceCharge = $this->getAllowanceCharges();
             $this->p_invoice->LegalMonetaryTotal = $this->getLegalMonetaryTotal();
             $this->p_invoice->Delivery = $this->getDelivery();
@@ -233,6 +258,7 @@ class Peppol extends AbstractService
                  ->setPaymentTerms()
                  ->addAttachments()
                  ->standardPeppolRules();
+
 
             //isolate this class to only peppol changes
             $this->p_invoice = $this->gateway
@@ -251,16 +277,16 @@ class Peppol extends AbstractService
     }
 
     /**
-     * Transforms a stdClass Invoice
-     * to Peppol\Invoice::class
+     * Transforms a stdClass document to Peppol\Invoice or Peppol\CreditNote
      *
-     * @param  mixed $invoice
+     * @param  mixed $document
+     * @param  string $type 'Invoice' or 'CreditNote'
      * @return self
      */
-    public function decode(mixed $invoice): self
+    public function decode(mixed $document, string $type = 'Invoice'): self
     {
-
-        $this->p_invoice = $this->e->decode('Peppol', json_encode($invoice), 'json');
+        $peppolType = $type === 'CreditNote' ? 'Peppol_CreditNote' : 'Peppol';
+        $this->p_invoice = $this->e->decode($peppolType, json_encode($document), 'json');
 
         return $this;
     }
@@ -272,10 +298,10 @@ class Peppol extends AbstractService
      */
     private function setInvoice(): self
     {
-        /** Handle Existing Document */
-        if ($this->invoice->e_invoice && isset($this->invoice->e_invoice->Invoice) && isset($this->invoice->e_invoice->Invoice->ID)) {
+        /** Handle Existing CreditNote Document */
+        if ($this->isCreditNote && $this->invoice->e_invoice && isset($this->invoice->e_invoice->CreditNote) && isset($this->invoice->e_invoice->CreditNote->ID)) {
 
-            $this->decode($this->invoice->e_invoice->Invoice);
+            $this->decode($this->invoice->e_invoice->CreditNote, 'CreditNote');
 
             $this->gateway
                 ->mutator
@@ -285,11 +311,29 @@ class Peppol extends AbstractService
                 ->setCompanySettings($this->_company_settings);
 
             return $this;
-
         }
 
-        /** Scaffold new document */
-        $this->p_invoice = new \InvoiceNinja\EInvoice\Models\Peppol\Invoice();
+        /** Handle Existing Invoice Document */
+        if (!$this->isCreditNote && $this->invoice->e_invoice && isset($this->invoice->e_invoice->Invoice) && isset($this->invoice->e_invoice->Invoice->ID)) {
+
+            $this->decode($this->invoice->e_invoice->Invoice, 'Invoice');
+
+            $this->gateway
+                ->mutator
+                ->setInvoice($this->invoice)
+                ->setPeppol($this->p_invoice)
+                ->setClientSettings($this->_client_settings)
+                ->setCompanySettings($this->_company_settings);
+
+            return $this;
+        }
+
+        /** Scaffold new document based on type */
+        if ($this->isCreditNote) {
+            $this->p_invoice = new \InvoiceNinja\EInvoice\Models\Peppol\CreditNote();
+        } else {
+            $this->p_invoice = new \InvoiceNinja\EInvoice\Models\Peppol\Invoice();
+        }
 
         /** Set Props */
         $this->gateway
@@ -319,13 +363,34 @@ class Peppol extends AbstractService
     }
 
     /**
-     * getInvoice
+     * getDocument
      *
-     * @return \InvoiceNinja\EInvoice\Models\Peppol\Invoice
+     * @return \InvoiceNinja\EInvoice\Models\Peppol\Invoice|\InvoiceNinja\EInvoice\Models\Peppol\CreditNote
      */
-    public function getInvoice(): \InvoiceNinja\EInvoice\Models\Peppol\Invoice
+    public function getDocument(): \InvoiceNinja\EInvoice\Models\Peppol\Invoice | \InvoiceNinja\EInvoice\Models\Peppol\CreditNote
     {
         return $this->p_invoice;
+    }
+
+    /**
+     * getInvoice
+     *
+     * @deprecated Use getDocument() instead
+     * @return \InvoiceNinja\EInvoice\Models\Peppol\Invoice|\InvoiceNinja\EInvoice\Models\Peppol\CreditNote
+     */
+    public function getInvoice(): \InvoiceNinja\EInvoice\Models\Peppol\Invoice | \InvoiceNinja\EInvoice\Models\Peppol\CreditNote
+    {
+        return $this->p_invoice;
+    }
+
+    /**
+     * Check if the document is a Credit Note
+     *
+     * @return bool
+     */
+    public function isCreditNote(): bool
+    {
+        return $this->isCreditNote;
     }
 
     /**
@@ -340,20 +405,24 @@ class Peppol extends AbstractService
         $e = new EInvoice();
         $xml = $e->encode($this->p_invoice, 'xml');
 
-        $prefix = '<?xml version="1.0" encoding="UTF-8"?>
+        if ($this->isCreditNote) {
+            $prefix = '<?xml version="1.0" encoding="UTF-8"?>
+<CreditNote xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+    xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+    xmlns="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2">';
+            $suffix = '</CreditNote>';
+        } else {
+            $prefix = '<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
     xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
     xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">';
-
-        $suffix = '</Invoice>';
+            $suffix = '</Invoice>';
+        }
 
         $xml = str_ireplace(['\n','<?xml version="1.0"?>'], ['', $prefix], $xml);
-
         $xml .= $suffix;
 
-        // nlog($xml);
         return $xml;
-
     }
 
     /**
@@ -381,11 +450,15 @@ class Peppol extends AbstractService
      */
     public function toObject(): mixed
     {
-        $invoice = new \stdClass();
+        $document = new \stdClass();
 
-        $invoice->Invoice = json_decode($this->toJson());
+        if ($this->isCreditNote) {
+            $document->CreditNote = json_decode($this->toJson());
+        } else {
+            $document->Invoice = json_decode($this->toJson());
+        }
 
-        return $invoice;
+        return $document;
     }
 
     /**
@@ -397,7 +470,8 @@ class Peppol extends AbstractService
      */
     public function toArray(): array
     {
-        return ['Invoice' => json_decode($this->toJson(), true)];
+        $key = $this->isCreditNote ? 'CreditNote' : 'Invoice';
+        return [$key => json_decode($this->toJson(), true)];
     }
 
 
@@ -601,32 +675,37 @@ class Peppol extends AbstractService
     {
         $taxable = $this->getTaxable();
 
+        // For credit notes, ensure all amounts are positive
+        $amount = $this->isCreditNote ? abs($this->invoice->amount) : $this->invoice->amount;
+        $totalTaxes = $this->isCreditNote ? abs($this->invoice->total_taxes) : $this->invoice->total_taxes;
+        $subtotal = $this->isCreditNote ? abs($this->calc->getSubtotal()) : $this->calc->getSubtotal();
+
         $lmt = new LegalMonetaryTotal();
 
         $lea = new LineExtensionAmount();
         $lea->currencyID = $this->invoice->client->currency()->code;
-        $lea->amount = $this->invoice->uses_inclusive_taxes ? round($this->invoice->amount - $this->invoice->total_taxes, 2) : $this->calc->getSubtotal();
+        $lea->amount = $this->invoice->uses_inclusive_taxes ? round($amount - $totalTaxes, 2) : $subtotal;
         $lmt->LineExtensionAmount = $lea;
 
         $tea = new TaxExclusiveAmount();
         $tea->currencyID = $this->invoice->client->currency()->code;
 
-        $tea->amount = round($this->invoice->amount - $this->invoice->total_taxes, 2);
+        $tea->amount = round($amount - $totalTaxes, 2);
         $lmt->TaxExclusiveAmount = $tea;
 
         $tia = new TaxInclusiveAmount();
         $tia->currencyID = $this->invoice->client->currency()->code;
-        $tia->amount = $this->invoice->amount;
+        $tia->amount = $amount;
         $lmt->TaxInclusiveAmount = $tia;
 
         $pa = new PayableAmount();
         $pa->currencyID = $this->invoice->client->currency()->code;
-        $pa->amount = $this->invoice->amount;
+        $pa->amount = $amount;
         $lmt->PayableAmount = $pa;
 
         $am = new \InvoiceNinja\EInvoice\Models\Peppol\AmountType\AllowanceTotalAmount();
         $am->currencyID = $this->invoice->client->currency()->code;
-        $am->amount = number_format($this->calc->getTotalDiscount(), 2, '.', '');
+        $am->amount = number_format(abs($this->calc->getTotalDiscount()), 2, '.', '');
         $lmt->AllowanceTotalAmount = $am;
 
         $cta = new \InvoiceNinja\EInvoice\Models\Peppol\AmountType\ChargeTotalAmount();
@@ -926,6 +1005,149 @@ class Peppol extends AbstractService
                 $pa = new PriceAmount();
                 $pa->currencyID = $this->invoice->client->currency()->code;
                 $pa->amount = (string)$item->cost;
+                $price->PriceAmount = $pa;
+                $line->Price = $price;
+            }
+
+            $lines[] = $line;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * getCreditNoteLines
+     *
+     * Compiles the credit note line items of the document
+     *
+     * @return array
+     */
+    private function getCreditNoteLines(): array
+    {
+        $lines = [];
+
+        foreach ($this->invoice->line_items as $key => $item) {
+
+            $_item = new Item();
+            $_item->Name = strlen($item->product_key ?? '') >= 1 ? $item->product_key : ctrans('texts.item');
+            $_item->Description = $item->notes;
+
+            $ctc = new ClassifiedTaxCategory();
+            $ctc->ID = new ID();
+            $ctc->ID->value = $this->getTaxType($item->tax_id);
+
+            if ($item->tax_rate1 > 0) {
+                $ctc->Percent = (string)$item->tax_rate1;
+            }
+
+            $ts = new TaxScheme();
+            $id = new ID();
+            $id->value = $this->standardizeTaxSchemeId($item->tax_name1);
+            $ts->ID = $id;
+            $ctc->TaxScheme = $ts;
+
+            if (floatval($item->tax_rate1) === 0.0) {
+                $ctc = $this->resolveTaxExemptReason($item, $ctc);
+
+                if ($this->tax_category_id == 'O') {
+                    unset($ctc->Percent);
+                }
+            }
+
+            $_item->ClassifiedTaxCategory[] = $ctc;
+
+            if ($item->tax_rate2 > 0) {
+                $ctc = new ClassifiedTaxCategory();
+                $ctc->ID = new ID();
+                $ctc->ID->value = $this->getTaxType($item->tax_id);
+                $ctc->Percent = (string)$item->tax_rate2;
+
+                $ts = new TaxScheme();
+                $id = new ID();
+                $id->value = $this->standardizeTaxSchemeId($item->tax_name2);
+                $ts->ID = $id;
+                $ctc->TaxScheme = $ts;
+
+                $_item->ClassifiedTaxCategory[] = $ctc;
+            }
+
+            if ($item->tax_rate3 > 0) {
+                $ctc = new ClassifiedTaxCategory();
+                $ctc->ID = new ID();
+                $ctc->ID->value = $this->getTaxType($item->tax_id);
+                $ctc->Percent = (string)$item->tax_rate3;
+
+                $ts = new TaxScheme();
+                $id = new ID();
+                $id->value = $this->standardizeTaxSchemeId($item->tax_name3);
+                $ts->ID = $id;
+                $ctc->TaxScheme = $ts;
+
+                $_item->ClassifiedTaxCategory[] = $ctc;
+            }
+
+            $line = new CreditNoteLine();
+
+            $id = new ID();
+            $id->value = (string) ($key + 1);
+            $line->ID = $id;
+
+            // Use CreditedQuantity instead of InvoicedQuantity
+            $cq = new \InvoiceNinja\EInvoice\Models\Peppol\QuantityType\CreditedQuantity();
+            $cq->amount = abs($item->quantity); // Ensure positive quantity
+            $cq->unitCode = $item->unit_code ?? 'C62';
+            $line->CreditedQuantity = $cq;
+
+            $lea = new LineExtensionAmount();
+            $lea->currencyID = $this->invoice->client->currency()->code;
+            $lineTotal = $this->invoice->uses_inclusive_taxes
+                ? round($item->line_total - $this->calcInclusiveLineTax($item->tax_rate1, $item->line_total), 2)
+                : round($item->line_total, 2);
+            $lea->amount = abs($lineTotal); // Ensure positive amount
+            $line->LineExtensionAmount = $lea;
+            $line->Item = $_item;
+
+            // Handle Price and Discounts
+            if ($item->discount > 0) {
+
+                // Base Price (before discount)
+                $basePrice = new Price();
+                $basePriceAmount = new PriceAmount();
+                $basePriceAmount->currencyID = $this->invoice->client->currency()->code;
+                $basePriceAmount->amount = (string)abs($item->cost);
+                $basePrice->PriceAmount = $basePriceAmount;
+
+                // Add Allowance Charge to Price
+                $allowanceCharge = new \InvoiceNinja\EInvoice\Models\Peppol\AllowanceChargeType\AllowanceCharge();
+                $allowanceCharge->ChargeIndicator = 'false'; // false = discount
+                $allowanceCharge->Amount = new \InvoiceNinja\EInvoice\Models\Peppol\AmountType\Amount();
+                $allowanceCharge->Amount->currencyID = $this->invoice->client->currency()->code;
+                $allowanceCharge->Amount->amount = number_format($this->calculateTotalItemDiscountAmount($item), 2, '.', '');
+                $this->allowance_total += $this->calculateTotalItemDiscountAmount($item);
+
+                // Add percentage if available
+                if ($item->discount > 0 && !$item->is_amount_discount) {
+
+                    $allowanceCharge->BaseAmount = new \InvoiceNinja\EInvoice\Models\Peppol\AmountType\BaseAmount();
+                    $allowanceCharge->BaseAmount->currencyID = $this->invoice->client->currency()->code;
+                    $allowanceCharge->BaseAmount->amount = (string)round(abs($item->cost * $item->quantity), 2);
+
+                    $mfn = new \InvoiceNinja\EInvoice\Models\Peppol\NumericType\MultiplierFactorNumeric();
+                    $mfn->value = (string) round($item->discount, 2);
+                    $allowanceCharge->MultiplierFactorNumeric = $mfn;
+                }
+
+                $allowanceCharge->AllowanceChargeReason = ctrans('texts.discount');
+
+                $line->Price = $basePrice;
+                $line->AllowanceCharge[] = $allowanceCharge;
+
+            } else {
+                // No discount case
+                $price = new Price();
+                $pa = new PriceAmount();
+                $pa->currencyID = $this->invoice->client->currency()->code;
+                $pa->amount = (string)abs($item->cost);
                 $price->PriceAmount = $pa;
                 $line->Price = $price;
             }
