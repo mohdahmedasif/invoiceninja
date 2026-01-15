@@ -66,7 +66,7 @@
         "hyvor/php-json-exporter": "^0.0.3",
         "imdhemy/laravel-purchases": "^1.7",
         "intervention/image": "^2.5",
-        "invoiceninja/einvoice": "dev-main",
+        "invoiceninja/einvoice": "v1.0.0",
         "invoiceninja/ubl_invoice": "^3",
         "josemmo/facturae-php": "^1.7",
         "laracasts/presenter": "^0.2.1",

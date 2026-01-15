@@ -391,8 +391,9 @@ class BaseModel extends Model
 
         $section = strtr($this->{$field}, $variables['labels']);
 
-        return strtr($section, $variables['values']);
+        $parsed = strtr($section, $variables['values']);
 
+        return \App\Services\Pdf\Purify::clean(html_entity_decode($parsed));
     }
 
     /**
