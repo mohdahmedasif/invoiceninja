@@ -19,7 +19,8 @@ use App\Services\EDocument\Gateway\Storecove\StorecoveRouter;
 
 class Mutator implements MutatorInterface
 {
-    private \InvoiceNinja\EInvoice\Models\Peppol\Invoice $p_invoice;
+    /** @var \InvoiceNinja\EInvoice\Models\Peppol\Invoice|\InvoiceNinja\EInvoice\Models\Peppol\CreditNote */
+    private \InvoiceNinja\EInvoice\Models\Peppol\Invoice | \InvoiceNinja\EInvoice\Models\Peppol\CreditNote $p_invoice;
 
     private ?\InvoiceNinja\EInvoice\Models\Peppol\Invoice $_client_settings;
 
@@ -51,7 +52,7 @@ class Mutator implements MutatorInterface
     /**
      * setPeppol
      *
-     * @param  \InvoiceNinja\EInvoice\Models\Peppol\Invoice $p_invoice
+     * @param  \InvoiceNinja\EInvoice\Models\Peppol\Invoice|\InvoiceNinja\EInvoice\Models\Peppol\CreditNote $p_invoice
      * @return self
      */
     public function setPeppol($p_invoice): self
@@ -63,7 +64,7 @@ class Mutator implements MutatorInterface
     /**
      * getPeppol
      *
-     * @return \InvoiceNinja\EInvoice\Models\Peppol\Invoice
+     * @return \InvoiceNinja\EInvoice\Models\Peppol\Invoice|\InvoiceNinja\EInvoice\Models\Peppol\CreditNote
      */
     public function getPeppol(): mixed
     {
