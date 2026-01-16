@@ -131,7 +131,13 @@ class MailWebhookSync implements ShouldQueue
             } catch (\Throwable $th) {
                 $token = config('services.postmark-outlook.token');
                 $postmark = new \Postmark\PostmarkClient($token);
-                $messageDetail = $postmark->getOutboundMessageDetails($invite->message_id);
+
+                try {
+                    $messageDetail = $postmark->getOutboundMessageDetails($invite->message_id);
+                } catch (\Throwable $th){
+
+                }
+                
             }
 
             try {
