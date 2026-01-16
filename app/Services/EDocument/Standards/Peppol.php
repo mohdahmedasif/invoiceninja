@@ -706,7 +706,7 @@ class Peppol extends AbstractService
 
         $lea = new LineExtensionAmount();
         $lea->currencyID = $this->invoice->client->currency()->code;
-        $lea->amount = $this->invoice->uses_inclusive_taxes ? round($amount - $totalTaxes, 2) : $subtotal;
+        $lea->amount = $this->invoice->uses_inclusive_taxes ? (string) round($amount - $totalTaxes, 2) : (string) $subtotal;
         $lmt->LineExtensionAmount = $lea;
 
         $tea = new TaxExclusiveAmount();
