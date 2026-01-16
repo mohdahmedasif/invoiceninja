@@ -321,6 +321,10 @@ class HtmlEngine
             $data['$quote.project'] = &$data['$project.name'];
 
             $data['$invoice.vendor'] = ['value' => $this->entity->vendor?->present()->name() ?: '', 'label' => ctrans('texts.vendor_name')];
+        
+            $data['$payment_qrcode'] = ['value' => '', 'label' => ctrans('texts.pay_now')];
+            $data['$payment_qrcode_raw'] = ['value' => '', 'label' => ctrans('texts.pay_now')];
+
         }
 
         if ($this->entity_string == 'credit') {
