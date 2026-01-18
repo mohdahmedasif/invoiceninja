@@ -314,13 +314,13 @@ class BaseModel extends Model
         }
 
         // special catch here for einvoicing eventing
-        if ($event_id == Webhook::EVENT_SENT_INVOICE && ($this instanceof Invoice) && $this->backup->guid == "") {
+        if (in_array($event_id, [Webhook::EVENT_SENT_INVOICE, Webhook::EVENT_SENT_CREDIT]) && ($this instanceof Invoice || $this instanceof Credit) && $this->backup->guid == "") {
             if($this->client->peppolSendingEnabled()) {
                 \App\Services\EDocument\Jobs\SendEDocument::dispatch(get_class($this), $this->id, $this->company->db);
             }
-            elseif($this->company->verifactuEnabled()) {
-                $this->service()->sendVerifactu();
-            }
+        }
+        elseif(in_array($event_id, [Webhook::EVENT_SENT_INVOICE]) && $this->company->verifactuEnabled()  && ($this instanceof Invoice) && $this->backup->guid == "") {
+            $this->service()->sendVerifactu();
         }
 
     }
