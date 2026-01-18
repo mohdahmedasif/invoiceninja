@@ -507,6 +507,26 @@ class Peppol extends AbstractService
     {
         // InvoiceNinja\EInvoice\Models\Peppol\DocumentReferenceType
 
+        if($this->isCreditNote() && $this->invoice->e_invoice->CreditNote->InvoiceDocumentReference ?? false) {
+            $document_reference = new \InvoiceNinja\EInvoice\Models\Peppol\DocumentReferenceType\InvoiceDocumentReference();
+
+            $d_id = new ID();
+            $d_id->value = $this->invoice->e_invoice->CreditNote->InvoiceDocumentReference->ID;
+
+            $document_reference->ID = $d_id;
+
+            if(isset($this->invoice->e_invoice->CreditNote->InvoiceDocumentReference->IssueDate)) {
+                $issue_date = new \DateTime($this->invoice->e_invoice->CreditNote->InvoiceDocumentReference->IssueDate);
+                $document_reference->IssueDate = $issue_date;
+            }
+
+            $this->p_invoice->InvoiceDocumentReference = $document_reference;
+
+            // $this->p_invoice->InvoiceDocumentReference = $this->invoice->e_invoice->CreditNote->InvoiceDocumentReference;
+            return $this;
+        }
+        
+
         // We should only need to pull this in from the already stored object.
         return $this;
     }
