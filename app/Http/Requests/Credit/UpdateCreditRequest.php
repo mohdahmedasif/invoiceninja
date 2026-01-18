@@ -81,6 +81,8 @@ class UpdateCreditRequest extends Request
 
         $rules['location_id'] = ['nullable', 'sometimes','bail', Rule::exists('locations', 'id')->where('company_id', $user->company()->id)->where('client_id', $this->credit->client_id)];
 
+        $rules['e_invoice'] = ['sometimes', 'nullable', new ValidInvoiceScheme()];
+
         return $rules;
     }
 

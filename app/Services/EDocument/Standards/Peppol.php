@@ -276,6 +276,7 @@ class Peppol extends AbstractService
             $this->p_invoice->Delivery = $this->getDelivery();
 
             $this->setOrderReference()
+                 ->setDocumentReference()
                  ->setTaxBreakdown()
                  ->setPaymentTerms()
                  ->addAttachments()
@@ -496,6 +497,19 @@ class Peppol extends AbstractService
         return [$key => json_decode($this->toJson(), true)];
     }
 
+    /**
+     * Set the reference for this document,
+     * ie: for a credit note, this reference would be the invoice it is referencing. Will always be stored on the e_invoice object.
+     *
+     * @return self
+     */
+    private function setDocumentReference(): self
+    {
+        // InvoiceNinja\EInvoice\Models\Peppol\DocumentReferenceType
+
+        // We should only need to pull this in from the already stored object.
+        return $this;
+    }
 
     /**
      * setOrderReference
