@@ -102,7 +102,9 @@ class ActivityController extends BaseController
         /** @var \App\Models\User auth()->user() */
         $user = auth()->user();
 
-        if (!$user->isAdmin()) {
+        $entity = $request->getEntity();
+
+        if ($user->cannot('view', $entity)) {
             $activities->where('user_id', auth()->user()->id);
         }
 
