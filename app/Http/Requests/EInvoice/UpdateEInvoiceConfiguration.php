@@ -115,7 +115,6 @@ class UpdateEInvoiceConfiguration extends Request
 
                return [...$rules, 'nullable'];
            }),
-           'document_reference' => ['sometimes', 'bail', 'array'],
        ];
     }
 

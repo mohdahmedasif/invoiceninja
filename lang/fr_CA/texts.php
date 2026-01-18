@@ -5683,9 +5683,11 @@ Développe automatiquement la section des notes dans le tableau de produits pour
     'reject_quote_confirmation' => 'Êtes-vous sûr de vouloir rejeter cette soumission ?',
     'reason' => 'Raison',
     'enter_reason' => 'Préciser la raison...',
-    'notification_invoice_overdue_summary_subject' => 'Invoice Overdue Summary: :date',
-    'notification_invoice_overdue_summary' => 'The following invoices are overdue:',
-    'purge_user_confirmation' => 'Warning! This action will reassign all entities to the account owner and permanently delete the user across all companies and accounts. Are you sure you want to proceed?',
+    'notification_invoice_overdue_summary_subject' => 'Récapitulatif des factures impayées: :date',
+    'notification_invoice_overdue_summary' => 'Les factures suivantes sont impayées:',
+    'purge_user_confirmation' => 'Attention ! Cette action réattribuera toutes les entités au propriétaire du compte et supprimera définitivement l\'utilisateur de l\'ensemble des entreprises et des comptes. Voulez-vous vraiment continuer ?',
+    'peppol_sending_failed' => 'Problème technique de livraison. Réessai impossible.',
+    'peppol_sending_success' => 'La facture électronique a été envoyée!',
 );
 
 return $lang;
