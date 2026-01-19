@@ -40,9 +40,9 @@ class ValidCreditScheme implements ValidationRule, ValidatorAwareRule
 
             $r = new EInvoice();
 
-            if (data_get($value, 'CreditNote.InvoiceDocumentReference.IssueDate') === null ||
-                data_get($value, 'CreditNote.InvoiceDocumentReference.IssueDate') === '') {
-                    unset($value['CreditNote']['InvoiceDocumentReference']['IssueDate']);
+            if (data_get($value, 'CreditNote.BillingReference.0.InvoiceDocumentReference.IssueDate') === null ||
+                data_get($value, 'CreditNote.BillingReference.0.InvoiceDocumentReference.IssueDate') === '') {
+                    unset($value['CreditNote']['BillingReference'][0]['InvoiceDocumentReference']['IssueDate']);
                 }
             
             $errors = $r->validateRequest($value['CreditNote'], CreditLevel::class);
@@ -56,21 +56,20 @@ class ValidCreditScheme implements ValidationRule, ValidatorAwareRule
 
             }
 
-
-            if (data_get($value, 'CreditNote.InvoiceDocumentReference.ID') === null ||
-                data_get($value, 'CreditNote.InvoiceDocumentReference.ID') === '') {
+            if (data_get($value, 'CreditNote.BillingReference.0.InvoiceDocumentReference.ID') === null ||
+                data_get($value, 'CreditNote.BillingReference.0.InvoiceDocumentReference.ID') === '') {
                 
                 $this->validator->errors()->add(
-                    "e_invoice.InvoiceDocumentReference.ID",
+                    "e_invoice.BillingReference.0.InvoiceDocumentReference.ID",
                     "Invoice Reference/Number is required"
                 );
 
             }
 
-            if (isset($value['CreditNote']['InvoiceDocumentReference']['IssueDate']) && strlen($value['CreditNote']['InvoiceDocumentReference']['IssueDate']) > 1 && !$this->isValidDateSyntax($value['CreditNote']['InvoiceDocumentReference']['IssueDate'])) {
+            if (isset($value['CreditNote']['BillingReference'][0]['InvoiceDocumentReference']['IssueDate']) && strlen($value['CreditNote']['BillingReference'][0]['InvoiceDocumentReference']['IssueDate']) > 1 && !$this->isValidDateSyntax($value['CreditNote']['BillingReference'][0]['InvoiceDocumentReference']['IssueDate'])) {
 
                 $this->validator->errors()->add(
-                    "e_invoice.InvoiceDocumentReference.IssueDate",
+                    "e_invoice.BillingReference.0.InvoiceDocumentReference.IssueDate",
                     "Invoice Issue Date is required"
                 );
 
@@ -83,14 +82,16 @@ class ValidCreditScheme implements ValidationRule, ValidatorAwareRule
 
     private function isValidDateSyntax(string $date_string): bool
     {
-        try {
-            $date = date_create($date_string);
-            return $date !== false && $date instanceof \DateTime;
-        } catch (\Exception $e) {
+        // Strict format validation: must be exactly Y-m-d
+        $date = \DateTime::createFromFormat('Y-m-d', $date_string);
+        
+        if ($date === false) {
             return false;
         }
+        
+        // Ensure the formatted date matches the input (catches overflow)
+        return $date->format('Y-m-d') === $date_string;
     }
-
     /**
      * Set the current validator.
      */

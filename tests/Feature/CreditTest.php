@@ -39,7 +39,6 @@ class CreditTest extends TestCase
         Model::reguard();
 
         $this->makeTestData();
-    //    $this->withoutExceptionHandling();
     }
 
     public function testCreditEInvoiceValidation()
@@ -48,12 +47,17 @@ class CreditTest extends TestCase
         $credit_update = [
             'e_invoice' => [
                     'CreditNote' => [
-                    'InvoiceDocumentReference' => [
-                        'ID' => '',
-                        'IssueDate' => '',
+                        'BillingReference' => [
+                            [
+                            'InvoiceDocumentReference' => [
+                                'ID' => '',
+                                'IssueDate' => '',
+                            ],
+                            ]
+                        ],
                     ],
                 ],
-            ],
+            
         ];
 
         $data = array_merge($this->credit->toArray(), $credit_update);
@@ -72,11 +76,15 @@ class CreditTest extends TestCase
         $credit_update = [
             'e_invoice' => [
                     'CreditNote' => [
-                    'InvoiceDocumentReference' => [
+                        'BillingReference' => [
+                            [
+                            'InvoiceDocumentReference' => [
                         'ID' => 'INV-123456S',
                         'IssueDate' => '',
+                            ],
                     ],
                 ],
+            ],
             ],
         ];
 
@@ -96,11 +104,15 @@ class CreditTest extends TestCase
         $credit_update = [
             'e_invoice' => [
                     'CreditNote' => [
-                    'InvoiceDocumentReference' => [
+                        'BillingReference' => [
+                            [
+                            'InvoiceDocumentReference' => [
                         'ID' => 'INV-123456S',
                         'IssueDate' => '2026-01-18',
+                        ],
                     ],
                 ],
+            ],
             ],
         ];
 
@@ -121,13 +133,17 @@ class CreditTest extends TestCase
         $credit_update = [
             'e_invoice' => [
                     'CreditNote' => [
-                    'InvoiceDocumentReference' => [
-                        'ID' => 'INV-123456S',
-                        'IssueDate' => '203326-01-118',
+                        'BillingReference' => [
+                            [
+                                'InvoiceDocumentReference' => [
+                                    'ID' => 'INV-123456S',
+                                    'IssueDate' => '203326-01-118',
+                                ],
+                            ],
+                        ],
                     ],
                 ],
-            ],
-        ];
+            ];
 
         $data = array_merge($this->credit->toArray(), $credit_update);
 
@@ -145,9 +161,13 @@ class CreditTest extends TestCase
         $credit_update = [
             'e_invoice' => [
                     'CreditNote' => [
+                        'BillingReference' => [
+                            [
                     'InvoiceDocumentReference' => [
                         'ID' => 'INV-123456S',
                         'IssueDate' => '3000-01-11',
+                            ],
+                        ],
                     ],
                 ],
             ],

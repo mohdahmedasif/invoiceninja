@@ -42,14 +42,15 @@ use InvoiceNinja\EInvoice\Models\Peppol\AmountType\TaxableAmount;
 use InvoiceNinja\EInvoice\Models\Peppol\PeriodType\InvoicePeriod;
 use InvoiceNinja\EInvoice\Models\Peppol\CodeType\IdentificationCode;
 use InvoiceNinja\EInvoice\Models\Peppol\InvoiceLineType\InvoiceLine;
-use InvoiceNinja\EInvoice\Models\Peppol\CreditNoteLineType\CreditNoteLine;
 use InvoiceNinja\EInvoice\Models\Peppol\TaxCategoryType\TaxCategory;
 use InvoiceNinja\EInvoice\Models\Peppol\TaxSubtotalType\TaxSubtotal;
 use InvoiceNinja\EInvoice\Models\Peppol\AmountType\TaxExclusiveAmount;
 use InvoiceNinja\EInvoice\Models\Peppol\AmountType\TaxInclusiveAmount;
 use InvoiceNinja\EInvoice\Models\Peppol\AmountType\LineExtensionAmount;
+use InvoiceNinja\EInvoice\Models\Peppol\CreditNoteLineType\CreditNoteLine;
 use InvoiceNinja\EInvoice\Models\Peppol\OrderReferenceType\OrderReference;
 use InvoiceNinja\EInvoice\Models\Peppol\MonetaryTotalType\LegalMonetaryTotal;
+use InvoiceNinja\EInvoice\Models\Peppol\BillingReferenceType\BillingReference;
 use InvoiceNinja\EInvoice\Models\Peppol\TaxCategoryType\ClassifiedTaxCategory;
 use InvoiceNinja\EInvoice\Models\Peppol\CustomerPartyType\AccountingCustomerParty;
 use InvoiceNinja\EInvoice\Models\Peppol\SupplierPartyType\AccountingSupplierParty;
@@ -507,22 +508,26 @@ class Peppol extends AbstractService
     {
         // InvoiceNinja\EInvoice\Models\Peppol\DocumentReferenceType
 
-        if($this->isCreditNote() && $this->invoice->e_invoice->CreditNote->InvoiceDocumentReference ?? false) {
+        if($this->isCreditNote() && isset($this->invoice->e_invoice->CreditNote->BillingReference) && isset($this->invoice->e_invoice->CreditNote->BillingReference[0]->InvoiceDocumentReference)) {
             $document_reference = new \InvoiceNinja\EInvoice\Models\Peppol\DocumentReferenceType\InvoiceDocumentReference();
 
+            $_idr = reset($this->invoice->e_invoice->CreditNote->BillingReference);
+
             $d_id = new ID();
-            $d_id->value = $this->invoice->e_invoice->CreditNote->InvoiceDocumentReference->ID;
+            $d_id->value = $_idr->InvoiceDocumentReference;
 
             $document_reference->ID = $d_id;
 
-            if(isset($this->invoice->e_invoice->CreditNote->InvoiceDocumentReference->IssueDate)) {
-                $issue_date = new \DateTime($this->invoice->e_invoice->CreditNote->InvoiceDocumentReference->IssueDate);
+            if(isset($_idr->InvoiceDocumentReference->IssueDate)) {
+                $issue_date = new \DateTime($_idr->InvoiceDocumentReference->IssueDate);
                 $document_reference->IssueDate = $issue_date;
             }
 
-            $this->p_invoice->InvoiceDocumentReference = $document_reference;
+            $billing_reference = new BillingReference();
+            $billing_reference->InvoiceDocumentReference = $document_reference;
 
-            // $this->p_invoice->InvoiceDocumentReference = $this->invoice->e_invoice->CreditNote->InvoiceDocumentReference;
+            $this->p_invoice->BillingReference[] = $billing_reference;
+
             return $this;
         }
         
