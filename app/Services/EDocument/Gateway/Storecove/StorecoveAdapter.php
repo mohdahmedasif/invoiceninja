@@ -262,7 +262,7 @@ class StorecoveAdapter
         //resolve and set the public identifier for the customer
         $accounting_customer_party = $this->storecove_invoice->getAccountingCustomerParty();
 
-        if (strlen($this->ninja_invoice->client->vat_number) > 2) {
+        if (strlen($this->ninja_invoice->client->vat_number ?? '') > 2) {
             $id =  preg_replace("/[^a-zA-Z0-9]/", "", $this->ninja_invoice->client->vat_number ?? '');
             $scheme = $this->storecove->router->setInvoice($this->ninja_invoice)->resolveTaxScheme($this->ninja_invoice->client->country->iso_3166_2, $this->ninja_invoice->client->classification ?? 'individual');
             $pi = new \App\Services\EDocument\Gateway\Storecove\Models\PublicIdentifiers($scheme, $id);
