@@ -56,6 +56,12 @@ class PeppolTest extends TestCase
             $this->markTestSkipped('Skip test for GH Actions');
         }
 
+        try {
+            $processor = new \Saxon\SaxonProcessor();
+        } catch (\Throwable $e) {
+            $this->markTestSkipped('saxon not installed');
+        }
+
         $this->faker = Factory::create();
 
         $this->makeTestData();
