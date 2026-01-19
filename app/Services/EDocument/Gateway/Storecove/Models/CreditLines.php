@@ -122,8 +122,8 @@ class CreditLines
         $this->quantity_unit_code = $quantity_unit_code;
         $this->allowance_charges = $allowance_charges;
         $this->amount_excluding_vat = $amount_excluding_vat * -1;
-        $this->amount_excluding_tax = $amount_excluding_tax * -1;
-        $this->amount_including_tax = $amount_including_tax * -1;
+        $this->amount_excluding_tax = $amount_excluding_tax;
+        $this->amount_including_tax = $amount_including_tax;
         $this->taxes_duties_fees = $taxes_duties_fees;
         $this->accounting_cost = $accounting_cost;
         $this->references = $references;

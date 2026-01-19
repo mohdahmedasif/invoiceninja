@@ -231,7 +231,7 @@ class Credit
         $this->accounting_supplier_party = $accounting_supplier_party;
         $this->allowance_charges = $allowance_charges;
         $this->amount_including_tax = $amount_including_tax;
-        $this->amount_including_vat = $amount_including_vat;
+        $this->amount_including_vat = $amount_including_vat * -1;
         $this->attachments = $attachments;
         $this->consumer_tax_mode = $consumer_tax_mode;
         $this->delivery = $delivery;
