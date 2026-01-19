@@ -277,11 +277,12 @@ class Peppol extends AbstractService
             $this->p_invoice->Delivery = $this->getDelivery();
 
             $this->setOrderReference()
-                 ->setDocumentReference()
+                 
                  ->setTaxBreakdown()
                  ->setPaymentTerms()
                  ->addAttachments()
-                 ->standardPeppolRules();
+                 ->standardPeppolRules()
+                 ->setDocumentReference();
 
 
             //isolate this class to only peppol changes
@@ -509,12 +510,13 @@ class Peppol extends AbstractService
         // InvoiceNinja\EInvoice\Models\Peppol\DocumentReferenceType
 
         if($this->isCreditNote() && isset($this->invoice->e_invoice->CreditNote->BillingReference) && isset($this->invoice->e_invoice->CreditNote->BillingReference[0]->InvoiceDocumentReference)) {
+
             $document_reference = new \InvoiceNinja\EInvoice\Models\Peppol\DocumentReferenceType\InvoiceDocumentReference();
 
             $_idr = reset($this->invoice->e_invoice->CreditNote->BillingReference);
 
             $d_id = new ID();
-            $d_id->value = $_idr->InvoiceDocumentReference;
+            $d_id->value = $_idr->InvoiceDocumentReference->ID;
 
             $document_reference->ID = $d_id;
 
@@ -526,7 +528,7 @@ class Peppol extends AbstractService
             $billing_reference = new BillingReference();
             $billing_reference->InvoiceDocumentReference = $document_reference;
 
-            $this->p_invoice->BillingReference[] = $billing_reference;
+            $this->p_invoice->BillingReference = [$billing_reference];
 
             return $this;
         }
@@ -563,7 +565,7 @@ class Peppol extends AbstractService
 
         // Only the invoice itself to start with:
         $filename = $this->invoice->getFileName();
-        $pdf = $this->invoice->service()->getInvoicePdf();
+        $pdf = $this->invoice instanceof \App\Models\Credit ? $this->invoice->service()->getCreditPdf($this->invoice->invitations->first()) : $this->invoice->service()->getInvoicePdf();
         $mime_code = 'application/pdf';
 
         $adr = new \InvoiceNinja\EInvoice\Models\Peppol\DocumentReferenceType\AdditionalDocumentReference();
@@ -1428,8 +1430,8 @@ class Peppol extends AbstractService
 
         $id = new \InvoiceNinja\EInvoice\Models\Peppol\IdentifierType\EndpointID();
         $id->value = $this->invoice->client->routing_id
-        ?? preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->client->vat_number)
-        ?? preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->client->id_number)
+        ?? preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->client->vat_number ?? '')
+        ?? preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->client->id_number ?? '')
         ?? 'fallback1234';
 
         $id->schemeID = $this->resolveScheme(true);

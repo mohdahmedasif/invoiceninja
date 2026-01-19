@@ -76,7 +76,7 @@ class Storecove
     /**
      * build
      *
-     * @param  \App\Models\Invoice $model
+     * @param  \App\Models\Invoice|\App\Models\Credit $model
      * @return self
      */
     public function build($model): self
