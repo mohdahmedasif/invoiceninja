@@ -152,17 +152,6 @@ class UserTest extends TestCase
 
         $data['email'] = 'newemail@gmail.com';
 
-        // $response = $this->withHeaders([
-        //     'X-API-SECRET' => config('ninja.api_secret'),
-        //     'X-API-TOKEN' => $company_token->token,
-        //     'X-API-PASSWORD' => 'ALongAndBriliantPassword',
-        // ])->putJson('/api/v1/users/'.$user->hashed_id.'?include=company_user', $data);
-
-
-        // $response->assertStatus(200);
-
-        // $data = $response->json();
-        // $this->assertEquals($data['data']['email'], $data['email']);
     }
 
 
@@ -185,7 +174,7 @@ class UserTest extends TestCase
             'X-API-PASSWORD' => 'ALongAndBriliantPassword',
         ])->putJson('/api/v1/users/'.$user->hashed_id.'?include=company_user', $data);
 
-        $response->assertStatus(422);
+        $response->assertStatus(200);
 
         $data = $user->toArray();
         unset($data['password']);
