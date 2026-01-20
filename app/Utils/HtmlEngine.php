@@ -212,12 +212,12 @@ class HtmlEngine
 
         if ($this->entity_string == 'invoice' || $this->entity_string == 'recurring_invoice') {    
             
-            if($this->client->peppolSendingEnabled() && $this->entity->amount < 0) {
-                $data['$entity'] = ['value' => ctrans('texts.credit'), 'label' => ctrans('texts.credit')];
-            }
-            else {
-                $data['$entity'] = ['value' => ctrans('texts.invoice'), 'label' => ctrans('texts.invoice')];
-            }
+            // if($this->client->peppolSendingEnabled() && $this->entity->amount < 0) {
+            //     $data['$entity'] = ['value' => ctrans('texts.credit'), 'label' => ctrans('texts.credit')];
+            // }
+            // else {
+            //     $data['$entity'] = ['value' => ctrans('texts.invoice'), 'label' => ctrans('texts.invoice')];
+            // }
             
 
             $data['$term_days'] = ['value' => $this->client->getSetting('payment_terms'), 'label' => ctrans('texts.payment_terms')];
@@ -327,9 +327,8 @@ class HtmlEngine
 
         }
 
-        if ($this->entity_string == 'credit') {
+        if ($this->entity_string == 'credit' || ($this->entity_string == 'invoice' && $this->client->peppolSendingEnabled() && $this->entity->amount < 0)) {
 
-            
             $data['$term_days'] = ['value' => $this->client->getSetting('payment_terms'), 'label' => ctrans('texts.payment_terms')];
 
             $data['$entity'] = ['value' => ctrans('texts.credit'), 'label' => ctrans('texts.credit')];
@@ -364,6 +363,9 @@ class HtmlEngine
             $data['$invoice.custom2'] = &$data['$credit.custom2'];
             $data['$invoice.custom3'] = &$data['$credit.custom3'];
             $data['$invoice.custom4'] = &$data['$credit.custom4'];
+
+            $data['$invoice.number'] = &$data['$number'];
+            $data['$invoice.total'] = &$data['$credit_total'];
         }
 
         $data['$portal_url'] = ['value' => $this->invitation->getPortalLink(), 'label' => ''];
@@ -498,6 +500,12 @@ class HtmlEngine
         $data['$credit_amount'] = ['value' => Number::formatMoney($this->entity_calc->getTotal(), $this->client) ?: ' ', 'label' => ctrans('texts.credit_amount')];
         $data['$credit_balance'] = ['value' => Number::formatMoney($this->entity->balance, $this->client) ?: ' ', 'label' => ctrans('texts.credit_balance')];
 
+
+        if($this->entity_string == 'invoice' && $this->client->peppolSendingEnabled() && $this->entity->amount < 0) {
+            $data['$invoice.total'] = &$data['$credit_amount'];
+            $data['$invoice_total_raw'] = ['value' => $this->entity_calc->getTotal(), 'label' => ctrans('texts.credit_total')];
+            $data['$invoice.amount'] = &$data['$credit_amount'];
+        }
 
         $data['$credit_number'] = &$data['$number'];
         $data['$credit_no'] = &$data['$number'];

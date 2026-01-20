@@ -382,13 +382,13 @@ class StorecoveAdapter
                                 $this->ninja_invoice->company->tax_data->regions->EU->has_sales_above_threshold;
 
             // Is this B2B or B2C?
-            $is_b2c = strlen($this->ninja_invoice->client->vat_number) < 2 ||
+            $is_b2c = strlen($this->ninja_invoice->client->vat_number ?? '') < 2 ||
                     !($this->ninja_invoice->client->has_valid_vat_number ?? false) ||
                     $this->ninja_invoice->client->classification == 'individual';
 
 
             // B2C, under threshold, no Company VAT Registerd - must charge origin country VAT
-            if ($is_b2c && !$is_over_threshold && strlen($this->ninja_invoice->company->settings->vat_number) < 2) {
+            if ($is_b2c && !$is_over_threshold && strlen($this->ninja_invoice->company->settings->vat_number ?? '') < 2) {
                 nlog("no company vat");
                 $this->nexus = $company_country_code;
             } elseif ($is_b2c) {
