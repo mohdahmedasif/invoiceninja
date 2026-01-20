@@ -212,14 +212,7 @@ class HtmlEngine
 
         if ($this->entity_string == 'invoice' || $this->entity_string == 'recurring_invoice') {    
             
-            // if($this->client->peppolSendingEnabled() && $this->entity->amount < 0) {
-            //     $data['$entity'] = ['value' => ctrans('texts.credit'), 'label' => ctrans('texts.credit')];
-            // }
-            // else {
-            //     $data['$entity'] = ['value' => ctrans('texts.invoice'), 'label' => ctrans('texts.invoice')];
-            // }
-            
-
+            $data['$entity'] = ['value' => ctrans('texts.invoice'), 'label' => ctrans('texts.invoice')];
             $data['$term_days'] = ['value' => $this->client->getSetting('payment_terms'), 'label' => ctrans('texts.payment_terms')];
 
             $data['$number'] = ['value' => $this->entity->number ?: ' ', 'label' => ctrans('texts.invoice_number')];
