@@ -130,7 +130,7 @@ class EntityLevel implements EntityLevelInterface
         return ['passes' => true];
     }
 
-    public function checkInvoice(Invoice $invoice): array
+    public function checkInvoice(Invoice | Credit $invoice): array
     {
         $this->init($invoice->client->locale());
 

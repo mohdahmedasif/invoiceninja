@@ -56,6 +56,12 @@ class PeppolTest extends TestCase
             $this->markTestSkipped('Skip test for GH Actions');
         }
 
+        try {
+            $processor = new \Saxon\SaxonProcessor();
+        } catch (\Throwable $e) {
+            $this->markTestSkipped('saxon not installed');
+        }
+
         $this->faker = Factory::create();
 
         $this->makeTestData();
@@ -180,6 +186,46 @@ class PeppolTest extends TestCase
         return compact('company', 'client', 'invoice');
     }
 
+
+    // {
+    //     "legalEntityId": 100000099999,
+    //     "document": {
+    //       "documentType": "enveloped_data",
+    //       "envelopedData": {
+    //         "document": "PEludm9pY2U+PC9JbnZvaWNlPg==",
+    //         "application": "peppol",
+    //         "processIdSchemeId": "cenbii-procid-ubl",
+    //         "processId": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
+    //         "documentIdSchemeId": "busdox-docid-qns",
+    //         "documentId": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0::2.1",
+    //         "envelope": {
+    //           "sender": "9930:DE010101010",
+    //           "receiver": "9930:DE010101010",
+    //           "requestMls": "on_error"
+    //         },
+    //         "metadata": {
+    //           "documentNumber": "1234567890",
+    //           "documentDate": "2025-05-16",
+    //           "receiverName": "John Doe",
+    //           "receiverCountry": "DE",
+    //           "payloadType": "Invoice"
+    //         }
+    //       }
+    //     }
+    //   }
+
+    /**
+     * Stubbed if and when we need to send the raw XML
+     * due to Storecoves inability to handle special features:
+     * 
+     * ie: attaching documents in base64. 
+     *
+     * @return void
+     */
+    public function envelopedMode()
+    {
+        
+    }
 
     public function testBeToBeWithSpecialLineItemConfiguration()
     {

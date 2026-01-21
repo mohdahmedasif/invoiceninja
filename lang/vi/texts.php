@@ -5684,9 +5684,11 @@ $lang = array(
     'reject_quote_confirmation' => 'Bạn có chắc chắn muốn đến chối báo giá này không?',
     'reason' => 'Lý do',
     'enter_reason' => 'Nhập một lý do...',
-    'notification_invoice_overdue_summary_subject' => 'Invoice Overdue Summary: :date',
-    'notification_invoice_overdue_summary' => 'The following invoices are overdue:',
-    'purge_user_confirmation' => 'Warning! This action will reassign all entities to the account owner and permanently delete the user across all companies and accounts. Are you sure you want to proceed?',
+    'notification_invoice_overdue_summary_subject' => 'Hóa đơn Tóm tắt quá hạn: :date',
+    'notification_invoice_overdue_summary' => 'Các Hóa đơn sau đây đã quá hạn:',
+    'purge_user_confirmation' => 'Cảnh báo! Thao tác này sẽ gán lại tất cả các thực thể đến chủ sở hữu tài khoản và Xóa vĩnh viễn Người dùng trên tất cả các công ty và tài khoản. Bạn có chắc chắn muốn đến tục không?',
+    'peppol_sending_failed' => 'Sự cố giao hàng kỹ thuật. Không thể thử lại',
+    'peppol_sending_success' => 'E- Hóa đơn gửi Thành công !',
 );
 
 return $lang;

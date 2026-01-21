@@ -62,6 +62,9 @@ class ProcessPostmarkWebhook implements ShouldQueue
      */
     public function __construct(private array $request, private string $security_token)
     {
+        if(\App\Utils\Ninja::isHosted()){
+            $this->onQueue('postmark');
+        }
     }
 
     private function getSystemLog(string $message_id): ?SystemLog
@@ -166,7 +169,7 @@ class ProcessPostmarkWebhook implements ShouldQueue
 
     private function processOpen()
     {
-        $this->invitation->opened_date = now()->setTimezone($this->invitation->company->timezone()->name);
+        $this->invitation->opened_date = now();
         $this->invitation->saveQuietly();
 
         $data = array_merge($this->request, ['history' => $this->fetchMessage()]);
@@ -422,7 +425,7 @@ class ProcessPostmarkWebhook implements ShouldQueue
                     'delivery_message' => $event->Details->DeliveryMessage ?? $event->Details->Summary ?? '',
                     'server' => $event->Details->DestinationServer ?? '',
                     'server_ip' => $event->Details->DestinationIP ?? '',
-                    'date' => \Carbon\Carbon::parse($event->ReceivedAt)->format('Y-m-d H:i:s') ?? '',
+                    'date' => \Carbon\Carbon::parse($event->ReceivedAt)->setTimezone($this->invitation->company->timezone()->name)->format('Y-m-d H:i:s') ?? '',
                 ];
 
             })->toArray();
@@ -441,12 +444,6 @@ class ProcessPostmarkWebhook implements ShouldQueue
 
         }
     }
-
-    // public function middleware()
-    // {
-    //     $key = $this->request['MessageID'] ?? '' . $this->request['Tag'] ?? '';
-    //     return [(new \Illuminate\Queue\Middleware\WithoutOverlapping($key))->releaseAfter(60)];
-    // }
 
     public function failed($exception = null)
     {

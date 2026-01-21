@@ -727,6 +727,12 @@ class StripePaymentDriver extends BaseDriver implements SupportsHeadlessInterfac
             $ach->updateBankAccount($request->all());
         }
 
+        // Handle SetupIntent succeeded for ACH microdeposit verification
+        if ($request->type === 'setup_intent.succeeded') {
+            $ach = new ACH($this);
+            $ach->handleSetupIntentSucceeded($request->all());
+        }
+
         if ($request->type === 'payment_intent.processing') {
             PaymentIntentProcessingWebhook::dispatch($request->data, $request->company_key, $this->company_gateway->id)->delay(now()->addSeconds(5));
             return response()->json([], 200);
