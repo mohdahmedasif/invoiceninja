@@ -204,6 +204,10 @@ class StorecoveExpense
                     $id_number = $pi->getId();
                 } elseif ($ident == 'routing_id') {
                     $routing_id = $pi->getId();
+                } else{
+                    //Sometimes some very unusual identifiers are returned, we should always skip these.
+                    // ie. IBAN, etc.
+                    continue;
                 }
             }
         }
