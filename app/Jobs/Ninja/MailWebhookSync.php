@@ -54,6 +54,7 @@ class MailWebhookSync implements ShouldQueue
      */
     public function handle()
     {
+        
         if (! Ninja::isHosted()) {
             return;
         }

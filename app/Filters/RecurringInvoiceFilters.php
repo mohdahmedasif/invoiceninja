@@ -141,9 +141,15 @@ class RecurringInvoiceFilters extends QueryFilters
         $dir = ($sort_col[1] == 'asc') ? 'asc' : 'desc';
 
         if ($sort_col[0] == 'client_id') {
-            return $this->builder->orderByRaw('ISNULL(client_id), client_id '. $dir)
-                    ->orderBy(\App\Models\Client::select('name')
-                    ->whereColumn('clients.id', 'recurring_invoices.client_id'), $dir);
+
+            return $this->builder->orderByRaw('client_id IS NULL')
+                             ->orderBy(\App\Models\Client::select('name')
+                             ->whereColumn('clients.id', 'recurring_invoices.client_id')
+                             ->limit(1), $dir);
+
+            // return $this->builder->orderByRaw('ISNULL(client_id), client_id '. $dir)
+            //         ->orderBy(\App\Models\Client::select('name')
+            //         ->whereColumn('clients.id', 'recurring_invoices.client_id'), $dir);
         }
 
         if ($sort_col[0] == 'number') {

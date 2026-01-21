@@ -42,6 +42,22 @@ class EInvoiceController extends BaseController
      */
     public function validateEntity(ValidateEInvoiceRequest $request)
     {
+
+        $user = auth()->user();
+
+        if(!in_array($user->company()->settings->e_invoice_type, ['VERIFACTU', 'PEPPOL'])) {
+            
+            $data = [
+                'passes' => true,
+                'invoices' => [],
+                'recurring_invoices' => [],
+                'clients' => [],
+                'companies' => [],
+            ];
+
+            return response()->json($data, 200);
+        }
+
         $el = $request->getValidatorClass();
 
         $data = [];

@@ -62,6 +62,9 @@ class ProcessPostmarkWebhook implements ShouldQueue
      */
     public function __construct(private array $request, private string $security_token)
     {
+        if(\App\Utils\Ninja::isHosted()){
+            $this->onQueue('postmark');
+        }
     }
 
     private function getSystemLog(string $message_id): ?SystemLog
@@ -441,12 +444,6 @@ class ProcessPostmarkWebhook implements ShouldQueue
 
         }
     }
-
-    // public function middleware()
-    // {
-    //     $key = $this->request['MessageID'] ?? '' . $this->request['Tag'] ?? '';
-    //     return [(new \Illuminate\Queue\Middleware\WithoutOverlapping($key))->releaseAfter(60)];
-    // }
 
     public function failed($exception = null)
     {

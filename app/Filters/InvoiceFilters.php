@@ -293,10 +293,6 @@ class InvoiceFilters extends QueryFilters
                              ->orderBy(\App\Models\Client::select('name')
                              ->whereColumn('clients.id', 'invoices.client_id')
                              ->limit(1), $dir);
-            // return $this->builder->orderByRaw('ISNULL(client_id), client_id '. $dir)
-            //                  ->orderBy(\App\Models\Client::select('name')
-            //                  ->whereColumn('clients.id', 'invoices.client_id'), $dir);
-
         }
 
         if ($sort_col[0] == 'project_id') {
