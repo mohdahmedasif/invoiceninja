@@ -2,19 +2,19 @@
 
 namespace App\PaymentDrivers\Mollie;
 
-use App\Exceptions\PaymentFailed;
-use App\Http\Requests\ClientPortal\Payments\PaymentResponseRequest;
-use App\Jobs\Util\SystemLogger;
-use App\Models\ClientGatewayToken;
-use App\Models\GatewayType;
 use App\Models\Payment;
-use App\Models\PaymentType;
 use App\Models\SystemLog;
-use App\PaymentDrivers\Common\LivewireMethodInterface;
-use App\PaymentDrivers\MolliePaymentDriver;
-use Illuminate\Contracts\View\Factory;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
+use App\Models\GatewayType;
+use App\Models\PaymentType;
+use App\Jobs\Util\SystemLogger;
+use App\Exceptions\PaymentFailed;
+use App\Models\ClientGatewayToken;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Contracts\View\Factory;
+use App\PaymentDrivers\MolliePaymentDriver;
+use App\PaymentDrivers\Common\LivewireMethodInterface;
+use App\Http\Requests\ClientPortal\Payments\PaymentResponseRequest;
 
 class CreditCard implements LivewireMethodInterface
 {
@@ -151,6 +151,7 @@ class CreditCard implements LivewireMethodInterface
             $payment = $this->mollie->gateway->payments->create($data);
 
             if ($payment->status === 'paid') {
+
                 $this->mollie->logSuccessfulGatewayResponse(
                     ['response' => $payment, 'data' => $this->mollie->payment_hash->data],
                     SystemLog::TYPE_MOLLIE
@@ -177,6 +178,7 @@ class CreditCard implements LivewireMethodInterface
 
     public function processSuccessfulPayment(\Mollie\Api\Resources\Payment $payment)
     {
+        
         $payment_hash = $this->mollie->payment_hash;
 
         if (property_exists($payment_hash->data, 'shouldStoreToken') && $payment_hash->data->shouldStoreToken) {
@@ -212,7 +214,7 @@ class CreditCard implements LivewireMethodInterface
             'payment_type' => PaymentType::CREDIT_CARD_OTHER,
             'transaction_reference' => $payment->id,
         ];
-
+        
         $payment_record = $this->mollie->createPayment($data, $payment->status === 'paid' ? Payment::STATUS_COMPLETED : Payment::STATUS_PENDING);
 
         SystemLogger::dispatch(

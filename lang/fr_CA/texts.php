@@ -5688,6 +5688,7 @@ Développe automatiquement la section des notes dans le tableau de produits pour
     'purge_user_confirmation' => 'Attention ! Cette action réattribuera toutes les entités au propriétaire du compte et supprimera définitivement l\'utilisateur de l\'ensemble des entreprises et des comptes. Voulez-vous vraiment continuer ?',
     'peppol_sending_failed' => 'Problème technique de livraison. Réessai impossible.',
     'peppol_sending_success' => 'La facture électronique a été envoyée!',
+    'auto_generate' => 'Auto générer',
 );
 
 return $lang;

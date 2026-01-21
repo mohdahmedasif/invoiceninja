@@ -22,10 +22,12 @@ use App\Models\PaymentType;
 use App\Jobs\Util\SystemLogger;
 use App\Utils\Traits\MakesHash;
 use Mollie\Api\MollieApiClient;
+use App\Exceptions\PaymentFailed;
 use App\Models\ClientGatewayToken;
 use App\PaymentDrivers\BaseDriver;
 use App\PaymentDrivers\Mollie\KBC;
 use App\PaymentDrivers\Mollie\IDEAL;
+use App\Exceptions\PaymentOpenMollie;
 use Mollie\Api\Exceptions\ApiException;
 use App\PaymentDrivers\Mollie\Bancontact;
 use App\PaymentDrivers\Mollie\CreditCard;
@@ -311,8 +313,6 @@ class MolliePaymentDriver extends BaseDriver
             'paid' => Payment::STATUS_COMPLETED,
         ];
 
-        nlog($request->id);
-
         try {
             $payment = $this->gateway->payments->get($request->id);
             $record = Payment::withTrashed()->where('transaction_reference', $request->id)->first();
@@ -320,7 +320,28 @@ class MolliePaymentDriver extends BaseDriver
             if ($record) {
                 $client = $record->client;
                 $this->client = $client;
-            } else {
+            } 
+            elseif($payment->status == 'failed' && $payment->metadata->gateway_type_id === GatewayType::CREDIT_CARD){
+                //no payment, and it failed? return early!
+                $client = Client::withTrashed()->find($this->decodePrimaryKey($payment->metadata->client_id));
+
+                $message = [
+                    'server_response' => $payment,
+                    'data' => $request->all(),
+                ];
+
+                SystemLogger::dispatch(
+                    $message,
+                    SystemLog::CATEGORY_GATEWAY_RESPONSE,
+                    SystemLog::EVENT_GATEWAY_FAILURE,
+                    SystemLog::TYPE_MOLLIE,
+                    $client,
+                    $client->company
+                );
+
+                return response()->json([], 200);
+            }
+            else {
                 $client = Client::withTrashed()->find($this->decodePrimaryKey($payment->metadata->client_id));
                 $this->client = $client;
                 // sometimes if the user is not returned to the site with a response from Mollie
@@ -427,6 +448,15 @@ class MolliePaymentDriver extends BaseDriver
 
         try {
             $payment = $this->gateway->payments->get($request->getPaymentId());
+            // if($payment->status == 'open'){
+            //     nlog("open furfy");
+            //     return render('gateways.mollie.mollie_pending_payment_placeholder');
+            // }
+            // else
+            
+            if($payment->status == 'failed'){
+                return (new CreditCard($this))->processUnsuccessfulPayment(new PaymentFailed($payment->details->failureMessage, 400));
+            }
 
             return (new CreditCard($this))->processSuccessfulPayment($payment);
         } catch (\Mollie\Api\Exceptions\ApiException $e) {

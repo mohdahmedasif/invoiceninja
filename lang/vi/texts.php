@@ -5689,6 +5689,7 @@ $lang = array(
     'purge_user_confirmation' => 'Cảnh báo! Thao tác này sẽ gán lại tất cả các thực thể đến chủ sở hữu tài khoản và Xóa vĩnh viễn Người dùng trên tất cả các công ty và tài khoản. Bạn có chắc chắn muốn đến tục không?',
     'peppol_sending_failed' => 'Sự cố giao hàng kỹ thuật. Không thể thử lại',
     'peppol_sending_success' => 'E- Hóa đơn gửi Thành công !',
+    'auto_generate' => 'Tự động tạo',
 );
 
 return $lang;
