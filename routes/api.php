@@ -348,6 +348,7 @@ Route::group(['middleware' => ['throttle:api', 'token_auth', 'valid_json','local
     Route::put('recurring_quotes/{recurring_quote}/upload', [RecurringQuoteController::class, 'upload']);
 
     Route::post('refresh', [LoginController::class, 'refresh'])->middleware('throttle:refresh');
+    Route::post('refresh_react', [LoginController::class, 'refreshReact'])->middleware('throttle:refresh');
 
     Route::post('reports/clients', ClientReportController::class)->middleware('throttle:20,1');
     Route::post('reports/activities', ActivityReportController::class)->middleware('throttle:20,1');

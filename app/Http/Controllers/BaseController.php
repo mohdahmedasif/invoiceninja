@@ -298,6 +298,44 @@ class BaseController extends Controller
     }
 
     /**
+     * Heavily reduced refresh query to reduce DB burden
+     *
+     * @param  Builder           $query
+     * @return Response| \Illuminate\Http\JsonResponse
+     */
+    protected function refreshReactResponse($query)
+    {
+        $this->manager->parseIncludes([        
+                'account',
+                'user.company_user',
+                'token',
+                'company.tax_rates',
+            ]);
+
+        $this->serializer = request()->input('serializer') ?: EntityTransformer::API_SERIALIZER_ARRAY;
+
+        if ($this->serializer === EntityTransformer::API_SERIALIZER_JSON) {
+            $this->manager->setSerializer(new JsonApiSerializer());
+        } else {
+            $this->manager->setSerializer(new ArraySerializer());
+        }
+
+        $transformer = new $this->entity_transformer($this->serializer);
+
+        $limit = $this->resolveQueryLimit();
+
+        $paginator = $query->paginate($limit);
+
+        /** @phpstan-ignore-next-line */
+        $query = $paginator->getCollection(); // @phpstan-ignore-line
+
+        $resource = new Collection($query, $transformer, $this->entity_type);
+
+        $resource->setPaginator(new IlluminatePaginatorAdapter($paginator));
+
+        return $this->response($this->manager->createData($resource)->toArray());
+    }
+    /**
      * Refresh API response with latest cahnges
      *
      * @param  Builder           $query
