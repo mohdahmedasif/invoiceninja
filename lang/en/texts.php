@@ -5690,6 +5690,7 @@ $lang = array(
     'peppol_sending_failed' => 'E-Invoice sending failed!',
     'peppol_sending_success' => 'E-Invoice sent successfully!',
     'auto_generate' => 'Auto Generate',
+    'mollie_payment_pending' => 'Your payment is pending. Please wait for it to be processed. We will email you when it is completed.',
 );
 
 return $lang;
