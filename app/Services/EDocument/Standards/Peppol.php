@@ -1512,8 +1512,13 @@ class Peppol extends AbstractService
         $location->Address = $address;
         $delivery->DeliveryLocation = $location;
 
-        if (isset($this->invoice->e_invoice->Invoice->Delivery[0]->ActualDeliveryDate->date)) {
-            $delivery->ActualDeliveryDate = new \DateTime($this->invoice->e_invoice->Invoice->Delivery[0]->ActualDeliveryDate->date);
+        // Safely extract delivery date using data_get to handle missing properties
+        $delivery_date = data_get($this->invoice->e_invoice, 'Invoice.Delivery.0.ActualDeliveryDate.date')
+            ?? data_get($this->invoice->e_invoice, 'Invoice.Delivery.0.ActualDeliveryDate')
+            ?? null;
+        
+        if ($delivery_date) {
+            $delivery->ActualDeliveryDate = new \DateTime($delivery_date);
         }
 
         return [$delivery];
