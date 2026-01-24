@@ -36,6 +36,7 @@ use App\Services\EDocument\Gateway\Storecove\Storecove;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use InvoiceNinja\EInvoice\Models\FatturaPA\FatturaElettronica;
 use App\Services\EDocument\Standards\Validation\Peppol\InvoiceLevel;
+use App\Services\EDocument\Standards\Validation\Peppol\EntityLevel;
 use App\Services\EDocument\Standards\Validation\XsltDocumentValidator;
 use InvoiceNinja\EInvoice\Models\Peppol\BranchType\FinancialInstitutionBranch;
 use InvoiceNinja\EInvoice\Models\Peppol\FinancialAccountType\PayeeFinancialAccount;
@@ -79,6 +80,7 @@ class PeppolTest extends TestCase
         $settings->country_id = Country::where('iso_3166_2', 'DE')->first()->id;
         $settings->email = $this->faker->safeEmail();
         $settings->currency_id = '3';
+        $settings->e_invoice_type = 'PEPPOL'; // Required for validation endpoint to run EntityLevel validation
 
         $tax_data = new TaxModel();
         $tax_data->regions->EU->has_sales_above_threshold = $params['over_threshold'] ?? false;
@@ -581,18 +583,69 @@ class PeppolTest extends TestCase
         $client->city = '';
         $client->save();
 
+        // Reload the client to ensure changes are persisted
+        $client = $client->refresh();
+
+        // Direct EntityLevel test to debug validation
+        $entityLevel = new EntityLevel();
+        $directResult = $entityLevel->checkClient($client);
+         
+        // Assert direct validation fails
+        $this->assertFalse($directResult['passes'], 'Direct EntityLevel validation should fail when address1 and city are empty');
+        $this->assertNotEmpty($directResult['client'], 'Direct EntityLevel should have client validation errors');
+
         $data = [
             'entity' => 'clients',
             'entity_id' => $client->hashed_id
         ];
 
+        
         $response = $this->withHeaders([
             'X-API-SECRET' => config('ninja.api_secret'),
             'X-API-TOKEN' => $this->token,
         ])->postJson('/api/v1/einvoice/validateEntity', $data);
 
+        // Log the response for debugging
+       
         $response->assertStatus(422);
 
+    }
+
+    public function testEntityLevelDirectlyValidatesClientWithMissingAddress()
+    {
+        $scenario = [
+            'company_vat' => 'DE923356489',
+            'company_country' => 'DE',
+            'client_country' => 'FR',
+            'client_vat' => 'FRAA123456789',
+            'client_id_number' => '123456789',
+            'classification' => 'business',
+            'has_valid_vat' => true,
+            'over_threshold' => true,
+            'legal_entity_id' => 290868,
+            'is_tax_exempt' => false,
+        ];
+
+        $entity_data = $this->setupTestData($scenario);
+        $client = $entity_data['client'];
+        
+        // Clear required address fields
+        $client->address1 = '';
+        $client->city = '';
+        $client->save();
+
+        // Directly instantiate and test EntityLevel
+        $entityLevel = new EntityLevel();
+        $result = $entityLevel->checkClient($client);
+
+        // Assert validation fails
+        $this->assertFalse($result['passes'], 'Validation should fail when address1 and city are empty');
+        $this->assertNotEmpty($result['client'], 'Should have client validation errors');
+        
+        // Check that address errors are present
+        $errorFields = array_column($result['client'], 'field');
+        $this->assertContains('address1', $errorFields, 'Should have address1 error');
+        $this->assertContains('city', $errorFields, 'Should have city error');
     }
 
     public function testEntityValidationFailsForClientViaInvoice()

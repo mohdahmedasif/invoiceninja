@@ -5689,6 +5689,7 @@ Développe automatiquement la section des notes dans le tableau de produits pour
     'peppol_sending_failed' => 'Problème technique de livraison. Réessai impossible.',
     'peppol_sending_success' => 'La facture électronique a été envoyée!',
     'auto_generate' => 'Auto générer',
+    'mollie_payment_pending' => 'Votre paiement est en attente. Veuillez patienter pendant son traitement. Nous vous enverrons un e-mail une fois qu\'il sera terminé.',
 );
 
 return $lang;
