@@ -5690,6 +5690,7 @@ $lang = array(
     'peppol_sending_failed' => 'Sự cố giao hàng kỹ thuật. Không thể thử lại',
     'peppol_sending_success' => 'E- Hóa đơn gửi Thành công !',
     'auto_generate' => 'Tự động tạo',
+    'mollie_payment_pending' => 'Sự chi trả của bạn đang chờ xử lý. Vui lòng chờ đến xử lý. Chúng tôi sẽ email cho bạn khi hoàn tất.',
 );
 
 return $lang;
