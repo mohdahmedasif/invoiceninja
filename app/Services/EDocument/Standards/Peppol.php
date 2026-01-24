@@ -1931,18 +1931,19 @@ class Peppol extends AbstractService
      */
     private function ensureVatNumberPrefix(string $vatNumber, string $countryCode): string
     {
-        // Clean the VAT number by removing non-alphanumeric characters
-        $cleanedVat = preg_replace("/[^a-zA-Z0-9]/", "", $vatNumber);
-
         // Handle Greece special case
         $prefix = ($countryCode === 'GR') ? 'EL' : $countryCode;
 
-        // Check if the VAT number already starts with the correct prefix
-        if (str_starts_with(strtoupper($cleanedVat), $prefix)) {
+        // Clean the VAT number by removing non-alphanumeric characters
+        $cleanedVat = preg_replace("/[^a-zA-Z0-9]/", "", $vatNumber);
+
+        // Check if the VAT number already starts with the country prefix
+        // If it does, return it as-is (preserving any check digits like "AA" in "FRAA123456789")
+        if (str_starts_with(strtoupper($cleanedVat), strtoupper($prefix))) {
             return $cleanedVat;
         }
 
-        // Prepend the prefix if it's missing
+        // If the prefix is missing, clean and prepend it
         return $prefix . $cleanedVat;
     }
 
