@@ -1407,11 +1407,13 @@ class Peppol extends AbstractService
 
             $party->PartyIdentification[] = $pi;
 
-            $pts = new \InvoiceNinja\EInvoice\Models\Peppol\PartyTaxSchemeType\PartyTaxScheme();
 
+            //// If this is intracommunity supply, ensure that the country prefix is on the party tax scheme
+            $pts = new \InvoiceNinja\EInvoice\Models\Peppol\PartyTaxSchemeType\PartyTaxScheme();
             $companyID = new \InvoiceNinja\EInvoice\Models\Peppol\IdentifierType\CompanyID();
-            $companyID->value = preg_replace("/[^a-zA-Z0-9]/", "", $this->invoice->client->vat_number);
+            $companyID->value = $this->ensureVatNumberPrefix($this->invoice->client->vat_number, $this->invoice->client->country->iso_3166_2);
             $pts->CompanyID = $companyID;
+            //// If this is intracommunity supply, ensure that the country prefix is on the party tax scheme
 
             $ts = new TaxScheme();
             $id = new ID();
@@ -1918,6 +1920,30 @@ class Peppol extends AbstractService
         $country_code = $is_client ? $this->invoice->client->country->iso_3166_2 : $this->invoice->company->country()->iso_3166_2;
 
         return '0037';
+    }
+
+    /**
+     * Ensures the VAT number has the correct country code prefix.
+     *
+     * @param string $vatNumber The raw VAT number.
+     * @param string $countryCode The 2-letter ISO country code.
+     * @return string The formatted VAT number with prefix.
+     */
+    private function ensureVatNumberPrefix(string $vatNumber, string $countryCode): string
+    {
+        // Clean the VAT number by removing non-alphanumeric characters
+        $cleanedVat = preg_replace("/[^a-zA-Z0-9]/", "", $vatNumber);
+
+        // Handle Greece special case
+        $prefix = ($countryCode === 'GR') ? 'EL' : $countryCode;
+
+        // Check if the VAT number already starts with the correct prefix
+        if (str_starts_with(strtoupper($cleanedVat), $prefix)) {
+            return $cleanedVat;
+        }
+
+        // Prepend the prefix if it's missing
+        return $prefix . $cleanedVat;
     }
 
     public function getErrors(): array
