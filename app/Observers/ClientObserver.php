@@ -80,7 +80,8 @@ class ClientObserver
 
         // QuickBooks push - efficient check in observer (zero overhead if not configured)
         if ($client->company->shouldPushToQuickbooks('client', 'create')) {
-            \App\Jobs\Quickbooks\PushClientToQuickbooks::dispatch(
+            \App\Jobs\Quickbooks\PushToQuickbooks::dispatch(
+                'client',
                 $client->id,
                 $client->company->id,
                 $client->company->db,
@@ -128,7 +129,8 @@ class ClientObserver
 
         // QuickBooks push - efficient check in observer (zero overhead if not configured)
         if ($client->company->shouldPushToQuickbooks('client', 'update')) {
-            \App\Jobs\Quickbooks\PushClientToQuickbooks::dispatch(
+            \App\Jobs\Quickbooks\PushToQuickbooks::dispatch(
+                'client',
                 $client->id,
                 $client->company->id,
                 $client->company->db,

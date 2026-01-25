@@ -36,13 +36,18 @@ class InvoiceObserver
             WebhookHandler::dispatch(Webhook::EVENT_CREATE_INVOICE, $invoice, $invoice->company, 'client')->delay(0);
         }
 
-        // QuickBooks push - efficient check in observer (zero overhead if not configured)
-        if ($invoice->company->shouldPushToQuickbooks('invoice', 'create')) {
-            \App\Jobs\Quickbooks\PushInvoiceToQuickbooks::dispatch(
+        // QuickBooks push - check if invoice status matches push_invoice_statuses
+        // Map invoice status to string for status-based push check
+        $invoiceStatus = $this->mapInvoiceStatusToString($invoice->status_id, $invoice->is_deleted);
+        
+        if ($invoice->company->shouldPushToQuickbooks('invoice', 'status', $invoiceStatus)) {
+            \App\Jobs\Quickbooks\PushToQuickbooks::dispatch(
+                'invoice',
                 $invoice->id,
                 $invoice->company->id,
                 $invoice->company->db,
-                'create'
+                'create',
+                $invoiceStatus
             );
         }
     }
@@ -74,19 +79,18 @@ class InvoiceObserver
             WebhookHandler::dispatch($event, $invoice, $invoice->company, 'client')->delay(0);
         }
 
-        // QuickBooks push - check push_on_update OR push_on_statuses
+        // QuickBooks push - check if invoice status matches push_invoice_statuses
         // Map invoice status to string for status-based push check
         $invoiceStatus = $this->mapInvoiceStatusToString($invoice->status_id, $invoice->is_deleted);
         
-        $shouldPush = $invoice->company->shouldPushToQuickbooks('invoice', 'update') ||
-                      $invoice->company->shouldPushToQuickbooks('invoice', 'status', $invoiceStatus);
-
-        if ($shouldPush) {
-            \App\Jobs\Quickbooks\PushInvoiceToQuickbooks::dispatch(
+        if ($invoice->company->shouldPushToQuickbooks('invoice', 'status', $invoiceStatus)) {
+            \App\Jobs\Quickbooks\PushToQuickbooks::dispatch(
+                'invoice',
                 $invoice->id,
                 $invoice->company->id,
                 $invoice->company->db,
-                'update'
+                'update',
+                $invoiceStatus
             );
         }
     }

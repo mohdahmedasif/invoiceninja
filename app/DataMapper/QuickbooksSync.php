@@ -39,6 +39,8 @@ class QuickbooksSync
 
     public string $default_expense_account = '';
 
+    public QuickbooksPushEvents $push_events;
+
     public function __construct(array $attributes = [])
     {
         $this->client = new QuickbooksSyncMap($attributes['client'] ?? []);
@@ -52,6 +54,7 @@ class QuickbooksSync
         $this->expense = new QuickbooksSyncMap($attributes['expense'] ?? []);
         $this->default_income_account = $attributes['default_income_account'] ?? '';
         $this->default_expense_account = $attributes['default_expense_account'] ?? '';
+        $this->push_events = new QuickbooksPushEvents($attributes['push_events'] ?? []);
     }
 
     public function toArray(): array
@@ -68,6 +71,7 @@ class QuickbooksSync
             'expense' => $this->expense->toArray(),
             'default_income_account' => $this->default_income_account,
             'default_expense_account' => $this->default_expense_account,
+            'push_events' => $this->push_events->toArray(),
         ];
     }
 }

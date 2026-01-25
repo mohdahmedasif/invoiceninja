@@ -1089,7 +1089,6 @@ class Company extends BaseModel
         
         // Cache the detailed check for this request lifecycle
         // This prevents re-checking if called multiple times in the same request
-        // Note: once() caches per closure, so we need separate closures for different entity/action combinations
         return once(function () use ($entity, $action, $status) {
             // Check if QuickBooks is actually configured (has token)
             if (!$this->quickbooks->isConfigured()) {
@@ -1109,13 +1108,22 @@ class Company extends BaseModel
                 return false;
             }
             
-            // Check action-specific settings
+            // Get push events from settings
+            $pushEvents = $this->quickbooks->settings->push_events;
+            
+            // Check action-specific settings from QuickbooksPushEvents
             return match($action) {
-                'create' => $entitySettings->push_on_create ?? false,
-                'update' => $entitySettings->push_on_update ?? false,
-                'status' => $status && in_array($status, $entitySettings->push_on_statuses ?? []),
+                'create' => match($entity) {
+                    'client' => $pushEvents->push_on_new_client ?? false,
+                    default => false, // Other entities can be added here
+                },
+                'update' => match($entity) {
+                    'client' => $pushEvents->push_on_updated_client ?? false,
+                    default => false, // Other entities can be added here
+                },
+                'status' => $status && in_array($status, $pushEvents->push_invoice_statuses ?? []),
                 default => false,
             };
-        }, $cacheKey);
+        });
     }
 }
