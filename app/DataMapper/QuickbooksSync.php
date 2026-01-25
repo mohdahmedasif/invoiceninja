@@ -53,4 +53,21 @@ class QuickbooksSync
         $this->default_income_account = $attributes['default_income_account'] ?? '';
         $this->default_expense_account = $attributes['default_expense_account'] ?? '';
     }
+
+    public function toArray(): array
+    {
+        return [
+            'client' => $this->client->toArray(),
+            'vendor' => $this->vendor->toArray(),
+            'invoice' => $this->invoice->toArray(),
+            'sales' => $this->sales->toArray(),
+            'quote' => $this->quote->toArray(),
+            'purchase_order' => $this->purchase_order->toArray(),
+            'product' => $this->product->toArray(),
+            'payment' => $this->payment->toArray(),
+            'expense' => $this->expense->toArray(),
+            'default_income_account' => $this->default_income_account,
+            'default_expense_account' => $this->default_expense_account,
+        ];
+    }
 }

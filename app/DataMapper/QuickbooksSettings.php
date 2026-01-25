@@ -55,4 +55,16 @@ class QuickbooksSettings implements Castable
         return new self($data);
     }
 
+    public function toArray(): array
+    {
+        return [
+            'accessTokenKey' => $this->accessTokenKey,
+            'refresh_token' => $this->refresh_token,
+            'realmID' => $this->realmID,
+            'accessTokenExpiresAt' => $this->accessTokenExpiresAt,
+            'refreshTokenExpiresAt' => $this->refreshTokenExpiresAt,
+            'baseURL' => $this->baseURL,
+            'settings' => $this->settings->toArray(),
+        ];
+    }
 }

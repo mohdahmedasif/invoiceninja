@@ -28,4 +28,11 @@ class QuickbooksSyncMap
            : SyncDirection::BIDIRECTIONAL;
 
     }
+
+    public function toArray(): array
+    {
+        return [
+            'direction' => $this->direction->value,
+        ];
+    }
 }
