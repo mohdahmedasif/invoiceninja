@@ -21,17 +21,17 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [BaseController::class, 'flutterRoute'])->middleware('guest');
 
 Route::get('setup', [SetupController::class, 'index'])->middleware('guest');
-Route::post('setup', [SetupController::class, 'doSetup'])->throttle(10, 1)->middleware('guest');
-Route::get('update', [SetupController::class, 'update'])->throttle(10, 1)->middleware('guest');
+Route::post('setup', [SetupController::class, 'doSetup'])->middleware('throttle:10,1')->middleware('guest');
+Route::get('update', [SetupController::class, 'update'])->middleware('throttle:10,1')->middleware('guest');
 
-Route::post('setup/check_db', [SetupController::class, 'checkDB'])->throttle(10, 1)->middleware('guest');
-Route::post('setup/check_mail', [SetupController::class, 'checkMail'])->throttle(10, 1)->middleware('guest');
-Route::post('setup/check_pdf', [SetupController::class, 'checkPdf'])->throttle(10, 1)->middleware('guest');
+Route::post('setup/check_db', [SetupController::class, 'checkDB'])->middleware('throttle:10,1')->middleware('guest');
+Route::post('setup/check_mail', [SetupController::class, 'checkMail'])->middleware('throttle:10,1')->middleware('guest');
+Route::post('setup/check_pdf', [SetupController::class, 'checkPdf'])->middleware('throttle:10,1')->middleware('guest');
 
 Route::get('password/reset', [ForgotPasswordController::class, 'showLinkRequestForm'])->middleware('domain_db')->name('password.request');
-Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->throttle(10, 1)->name('password.email');
+Route::post('password/email', [ForgotPasswordController::class, 'sendResetLinkEmail'])->middleware('throttle:10,1')->name('password.email');
 Route::get('password/reset/{token}', [ResetPasswordController::class, 'showResetForm'])->middleware(['domain_db', 'email_db'])->name('password.reset');
-Route::post('password/reset', [ResetPasswordController::class, 'reset'])->throttle(10, 1)->middleware('email_db')->name('password.update');
+Route::post('password/reset', [ResetPasswordController::class, 'reset'])->middleware('throttle:10,1')->middleware('email_db')->name('password.update');
 
 Route::get('auth/{provider}', [LoginController::class, 'redirectToProvider']);
 

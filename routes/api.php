@@ -453,7 +453,7 @@ Route::group(['middleware' => ['throttle:api', 'token_auth', 'valid_json','local
     Route::post('stripe/import_customers', [StripeController::class, 'import'])->middleware('password_protected')->name('stripe.import');
 
     Route::post('stripe/verify', [StripeController::class, 'verify'])->middleware('password_protected')->name('stripe.verify');
-    Route::post('stripe/disconnect/{company_gateway_id}', [StripeController::class, 'disconnect'])->middleware('password_protected')->name('stripe.disconnect');
+Route::post('stripe/disconnect/{company_gateway_id}', [StripeController::class, 'disconnect'])->middleware('password_protected')->name('stripe.disconnect');
 
     Route::get('subscriptions/steps', [SubscriptionStepsController::class, 'index']);
     Route::post('subscriptions/steps/check', [SubscriptionStepsController::class, 'check']);

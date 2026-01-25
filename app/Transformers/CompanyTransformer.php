@@ -223,10 +223,18 @@ class CompanyTransformer extends EntityTransformer
             'smtp_local_domain' => (string) $company->smtp_local_domain ?? '',
             'smtp_verify_peer' => (bool) $company->smtp_verify_peer,
             'e_invoice' => $company->e_invoice ?: new \stdClass(),
-            'has_quickbooks_token' => $company->quickbooks ? true : false,
-            'is_quickbooks_token_active' => $company->quickbooks?->accessTokenKey ?? false,
             'legal_entity_id' =>  $company->legal_entity_id ? (int) $company->legal_entity_id : null,
         ];
+
+        // Only include QuickBooks flags if column is not null AND has actual connection data
+        // This prevents API bloat for users who don't use QuickBooks
+        $quickbooksRaw = $company->getRawOriginal('quickbooks');
+        if (!is_null($quickbooksRaw) && $company->quickbooks->isConfigured()) {
+            $data['has_quickbooks_token'] = true;
+            $data['is_quickbooks_token_active'] = (bool) $company->quickbooks->accessTokenKey;
+        }
+
+        return $data;
     }
 
     private function isLarge(Company $company): bool

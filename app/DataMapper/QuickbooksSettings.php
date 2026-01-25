@@ -67,4 +67,30 @@ class QuickbooksSettings implements Castable
             'settings' => $this->settings->toArray(),
         ];
     }
+
+    /**
+     * Check if this QuickbooksSettings instance represents actual data or is just a default empty object.
+     * 
+     * @return bool True if this has actual QuickBooks connection data, false if it's just defaults
+     */
+    public function isConfigured(): bool
+    {
+        // If accessTokenKey is set, we have a connection
+        return !empty($this->accessTokenKey);
+    }
+
+    /**
+     * Check if this QuickbooksSettings instance is empty (default values only).
+     * 
+     * @return bool True if this is an empty/default instance
+     */
+    public function isEmpty(): bool
+    {
+        return empty($this->accessTokenKey) 
+            && empty($this->refresh_token) 
+            && empty($this->realmID)
+            && $this->accessTokenExpiresAt === 0
+            && $this->refreshTokenExpiresAt === 0
+            && empty($this->baseURL);
+    }
 }
