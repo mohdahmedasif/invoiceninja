@@ -35,6 +35,16 @@ class InvoiceObserver
         if ($subscriptions) {
             WebhookHandler::dispatch(Webhook::EVENT_CREATE_INVOICE, $invoice, $invoice->company, 'client')->delay(0);
         }
+
+        // QuickBooks push - efficient check in observer (zero overhead if not configured)
+        if ($invoice->company->shouldPushToQuickbooks('invoice', 'create')) {
+            \App\Jobs\Quickbooks\PushInvoiceToQuickbooks::dispatch(
+                $invoice->id,
+                $invoice->company->id,
+                $invoice->company->db,
+                'create'
+            );
+        }
     }
 
     /**
@@ -63,6 +73,43 @@ class InvoiceObserver
         if ($subscriptions) {
             WebhookHandler::dispatch($event, $invoice, $invoice->company, 'client')->delay(0);
         }
+
+        // QuickBooks push - check push_on_update OR push_on_statuses
+        // Map invoice status to string for status-based push check
+        $invoiceStatus = $this->mapInvoiceStatusToString($invoice->status_id, $invoice->is_deleted);
+        
+        $shouldPush = $invoice->company->shouldPushToQuickbooks('invoice', 'update') ||
+                      $invoice->company->shouldPushToQuickbooks('invoice', 'status', $invoiceStatus);
+
+        if ($shouldPush) {
+            \App\Jobs\Quickbooks\PushInvoiceToQuickbooks::dispatch(
+                $invoice->id,
+                $invoice->company->id,
+                $invoice->company->db,
+                'update'
+            );
+        }
+    }
+
+    /**
+     * Map invoice status_id and is_deleted to status string for QuickBooks push.
+     * 
+     * @param int $statusId
+     * @param bool $isDeleted
+     * @return string
+     */
+    private function mapInvoiceStatusToString(int $statusId, bool $isDeleted): string
+    {
+        if ($isDeleted) {
+            return 'deleted';
+        }
+
+        return match($statusId) {
+            \App\Models\Invoice::STATUS_DRAFT => 'draft',
+            \App\Models\Invoice::STATUS_SENT => 'sent',
+            \App\Models\Invoice::STATUS_PAID => 'paid',
+            default => 'unknown',
+        };
     }
 
     /**

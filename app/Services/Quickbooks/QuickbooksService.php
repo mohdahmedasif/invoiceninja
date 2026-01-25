@@ -201,4 +201,81 @@ class QuickbooksService
         return isset($this->settings->{$entity}->direction) && ($this->settings->{$entity}->direction === $direction || $this->settings->{$entity}->direction === \App\Enum\SyncDirection::BIDIRECTIONAL);
     }
 
+    /**
+     * Fetch income accounts from QuickBooks.
+     * 
+     * @return array Array of account objects with 'Id', 'Name', 'AccountType', etc.
+     */
+    public function fetchIncomeAccounts(): array
+    {
+        try {
+            if (!$this->sdk) {
+                return [];
+            }
+            
+            $query = "SELECT * FROM Account WHERE AccountType = 'Income' AND Active = true";
+            $accounts = $this->sdk->Query($query);
+            
+            return is_array($accounts) ? $accounts : [];
+        } catch (\Exception $e) {
+            nlog("Error fetching income accounts: {$e->getMessage()}");
+            return [];
+        }
+    }
+
+    /**
+     * Fetch expense accounts from QuickBooks.
+     * 
+     * @return array Array of account objects with 'Id', 'Name', 'AccountType', etc.
+     */
+    public function fetchExpenseAccounts(): array
+    {
+        try {
+            if (!$this->sdk) {
+                return [];
+            }
+            
+            $query = "SELECT * FROM Account WHERE AccountType IN ('Expense', 'Cost of Goods Sold') AND Active = true";
+            $accounts = $this->sdk->Query($query);
+            
+            return is_array($accounts) ? $accounts : [];
+        } catch (\Exception $e) {
+            nlog("Error fetching expense accounts: {$e->getMessage()}");
+            return [];
+        }
+    }
+
+    /**
+     * Format accounts for UI dropdown consumption.
+     * 
+     * @param array $accounts Raw account objects from QuickBooks API
+     * @return array Formatted array with 'value' (ID) and 'label' (Name) for each account
+     */
+    public function formatAccountsForDropdown(array $accounts): array
+    {
+        $formatted = [];
+        
+        foreach ($accounts as $account) {
+            $id = is_object($account) && isset($account->Id) 
+                ? (string) $account->Id 
+                : (is_array($account) && isset($account['Id']) ? (string) $account['Id'] : null);
+                
+            $name = is_object($account) && isset($account->Name)
+                ? (string) $account->Name
+                : (is_array($account) && isset($account['Name']) ? (string) $account['Name'] : '');
+            
+            if ($id && $name) {
+                $formatted[] = [
+                    'value' => $id,
+                    'label' => $name,
+                    'account_type' => is_object($account) && isset($account->AccountType)
+                        ? (string) $account->AccountType
+                        : (is_array($account) && isset($account['AccountType']) ? (string) $account['AccountType'] : ''),
+                ];
+            }
+        }
+        
+        return $formatted;
+    }
+
 }

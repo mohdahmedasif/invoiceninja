@@ -36,12 +36,12 @@ Route::post('password/reset', [ResetPasswordController::class, 'reset'])->middle
 Route::get('auth/{provider}', [LoginController::class, 'redirectToProvider']);
 
 Route::middleware(['url_db'])->group(function () {
-    Route::get('/user/confirm/{confirmation_code}', [UserController::class, 'confirm'])->throttle(10, 1);
-    Route::post('/user/confirm/{confirmation_code}', [UserController::class, 'confirmWithPassword'])->throttle(10, 1);
+    Route::get('/user/confirm/{confirmation_code}', [UserController::class, 'confirm'])->middleware('throttle:10,1');
+    Route::post('/user/confirm/{confirmation_code}', [UserController::class, 'confirmWithPassword'])->middleware('throttle:10,1');
 });
 
-Route::get('stripe/signup/{token}', [StripeConnectController::class, 'initialize'])->throttle(10, 1)->name('stripe_connect.initialization');
-Route::get('stripe/completed', [StripeConnectController::class, 'completed'])->throttle(10, 1)->name('stripe_connect.return');
+Route::get('stripe/signup/{token}', [StripeConnectController::class, 'initialize'])->middleware('throttle:10,1')->name('stripe_connect.initialization');
+Route::get('stripe/completed', [StripeConnectController::class, 'completed'])->middleware('throttle:10,1')->name('stripe_connect.return');
 
 Route::get('yodlee/onboard/{token}', [YodleeController::class, 'auth'])->name('yodlee.auth');
 
