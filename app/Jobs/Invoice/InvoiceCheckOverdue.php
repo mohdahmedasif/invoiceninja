@@ -186,8 +186,6 @@ class InvoiceCheckOverdue implements ShouldQueue
                 continue;
             }
 
-            nlog($company_user->permissions);
-
             $overdue_invoices_collection = $overdue_invoices;
 
             $invoice = Invoice::withTrashed()->find($overdue_invoices[0]['id']);
@@ -205,7 +203,7 @@ class InvoiceCheckOverdue implements ShouldQueue
                 $overdue_invoices_collection = collect($overdue_invoices)
                             ->filter(function ($overdue_invoice) use ($user) {
                                 $invoice = Invoice::withTrashed()->find($overdue_invoice['id']);
-                                nlog([$invoice->user_id, $user->id, $invoice->assigned_user_id, $user->id]);
+                                // nlog([$invoice->user_id, $user->id, $invoice->assigned_user_id, $user->id]);
                                 return $invoice->user_id == $user->id || $invoice->assigned_user_id == $user->id;
                         })
                         ->toArray();
@@ -243,6 +241,7 @@ class InvoiceCheckOverdue implements ShouldQueue
 
     /**
      * Send notifications for an overdue invoice to all relevant company users.
+     * @deprecated in favour of sendOverdueNotifications to send a summary email to all users
      */
     /** @phpstan-ignore-next-line */
     private function notifyOverdueInvoice(Invoice $invoice): void
