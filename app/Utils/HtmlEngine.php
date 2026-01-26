@@ -692,6 +692,7 @@ class HtmlEngine
         $data['$task.rate'] = ['value' => '', 'label' => ctrans('texts.rate')];
         $data['$task.cost'] = ['value' => '', 'label' => ctrans('texts.rate')];
         $data['$task.hours'] = ['value' => '', 'label' => ctrans('texts.hours')];
+        $data['$task.total_hours'] = ['value' => $this->totalTaskHours(), 'label' => ctrans('texts.total_hours')];
         $data['$task.tax'] = ['value' => '', 'label' => ctrans('texts.tax')];
         $data['$task.tax_name1'] = ['value' => '', 'label' => ctrans('texts.tax')];
         $data['$task.tax_name2'] = ['value' => '', 'label' => ctrans('texts.tax')];
@@ -899,6 +900,15 @@ Código seguro de verificación (CSV): {$verifactu_log->status}";
         return "<tr><td>{$text}</td></tr><tr><td><img src=\"data:image/png;base64,{$qr_code}\" alt=\"Verifactu QR Code\"></td></tr>";
     }
 
+
+    private function totalTaskHours()
+    {
+        return collect($this->entity->line_items)
+                    ->filter(function ($item) {
+                        return $item->type_id == '2';
+                    })
+                    ->sum('quantity');
+    }
 
     private function getPaymentMeta(\App\Models\Payment $payment)
     {
