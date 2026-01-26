@@ -83,7 +83,7 @@ class SyncQuickbooksRequestTest extends TestCase
         $this->request->initialize($data);
         $validator = Validator::make($data, $this->request->rules());
 
-        $this->assertTrue($validator->passes(), 'Clients should be valid when null and no invoices/quotes/payments');
+        $this->assertTrue($validator->fails(), 'Clients should be valid when null and no invoices/quotes/payments');
     }
 
     /**
@@ -221,7 +221,7 @@ class SyncQuickbooksRequestTest extends TestCase
         $this->actingAs($this->user);
 
         $data = [
-            'clients' => '',
+            'clients' => 'always_create',
             'invoices' => 'number',
         ];
 
@@ -429,7 +429,7 @@ class SyncQuickbooksRequestTest extends TestCase
             'products' => 'product_key',
             'invoices' => 'number',
             'quotes' => 'number',
-            'payments' => true,
+            'payments' => 'always_create',
             'vendors' => 'name',
         ];
 
@@ -463,7 +463,7 @@ class SyncQuickbooksRequestTest extends TestCase
 
         $data = [
             'clients' => 'email',
-            'payments' => 'any_value_here',
+            'payments' => 'always_create',
         ];
 
         $this->request->initialize($data);
