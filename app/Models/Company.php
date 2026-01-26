@@ -1089,7 +1089,7 @@ class Company extends BaseModel
         
         // Cache the detailed check for this request lifecycle
         // This prevents re-checking if called multiple times in the same request
-        return once(function () use ($entity, $action, $status) {
+        return once(function () use ($entity) {
             // Check if QuickBooks is actually configured (has token)
             if (!$this->quickbooks->isConfigured()) {
                 return false;
@@ -1104,26 +1104,7 @@ class Company extends BaseModel
             $direction = $entitySettings->direction->value;
             
             // Check if sync direction allows push
-            if ($direction !== 'push' && $direction !== 'bidirectional') {
-                return false;
-            }
-            
-            // Get push events from settings
-            $pushEvents = $this->quickbooks->settings->push_events;
-            
-            // Check action-specific settings from QuickbooksPushEvents
-            return match($action) {
-                'create' => match($entity) {
-                    'client' => $pushEvents->push_on_new_client ?? false,
-                    default => false, // Other entities can be added here
-                },
-                'update' => match($entity) {
-                    'client' => $pushEvents->push_on_updated_client ?? false,
-                    default => false, // Other entities can be added here
-                },
-                'status' => $status && in_array($status, $pushEvents->push_invoice_statuses ?? []),
-                default => false,
-            };
+            return $direction === 'push' || $direction === 'bidirectional';
         });
     }
 }

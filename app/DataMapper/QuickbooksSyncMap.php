@@ -19,13 +19,13 @@ use App\Enum\SyncDirection;
  */
 class QuickbooksSyncMap
 {
-    public SyncDirection $direction = SyncDirection::BIDIRECTIONAL;
+    public SyncDirection $direction = SyncDirection::NONE;
 
     public function __construct(array $attributes = [])
     {
         $this->direction = isset($attributes['direction'])
            ? SyncDirection::from($attributes['direction'])
-           : SyncDirection::BIDIRECTIONAL;
+           : SyncDirection::NONE;
     }
 
     public function toArray(): array
