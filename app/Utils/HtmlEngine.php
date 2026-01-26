@@ -194,6 +194,8 @@ class HtmlEngine
         $data['$payment_schedule'] = ['value' => '', 'label' => ctrans('texts.payment_schedule')];
         $data['$payment_schedule_interval'] = ['value' => '', 'label' => ctrans('texts.payment_schedule')];
 
+        $data['$days_overdue'] = ['value' => $this->daysOverdue(), 'label' => ctrans('texts.overdue')];
+
         if(method_exists($this->entity, 'paymentSchedule')) {
             $data['$payment_schedule'] = ['value' => $this->entity->paymentSchedule(true), 'label' => ctrans('texts.payment_schedule')];
             $data['$payment_schedule_interval'] = ['value' => $this->entity->paymentScheduleInterval(), 'label' => ctrans('texts.payment_schedule')];
@@ -900,7 +902,14 @@ Código seguro de verificación (CSV): {$verifactu_log->status}";
         return "<tr><td>{$text}</td></tr><tr><td><img src=\"data:image/png;base64,{$qr_code}\" alt=\"Verifactu QR Code\"></td></tr>";
     }
 
-
+    
+    /**
+     * totalTaskHours
+     *
+     * calculates the total hours of all tasks in the invoice
+     * 
+     * @return int
+     */
     private function totalTaskHours()
     {
         return collect($this->entity->line_items)
@@ -908,6 +917,32 @@ Código seguro de verificación (CSV): {$verifactu_log->status}";
                         return $item->type_id == '2';
                     })
                     ->sum('quantity');
+    }
+    
+    /**
+     * daysOverdue
+     *
+     * calculates the number of days overdue the entity is
+     * 
+     * @return int
+     */
+    private function daysOverdue()
+    {
+        if($this->entity->partial > 0 && !empty($this->entity->partial_due_date)) {
+
+            $days_overdue = \Carbon\Carbon::parse($this->entity->partial_due_date)->diffInDays(now()->startOfDay()->setTimezone($this->entity->company->timezone()->name));
+
+            return max($days_overdue, 0);
+        }
+
+        if(!empty($this->entity->due_date)) {
+            
+            $days_overdue = \Carbon\Carbon::parse($this->entity->due_date)->diffInDays(now()->startOfDay()->setTimezone($this->entity->company->timezone()->name));
+
+            return max($days_overdue, 0);
+        }
+
+        return 0;
     }
 
     private function getPaymentMeta(\App\Models\Payment $payment)
