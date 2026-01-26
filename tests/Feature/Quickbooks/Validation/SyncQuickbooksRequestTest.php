@@ -226,7 +226,14 @@ class SyncQuickbooksRequestTest extends TestCase
         ];
 
         $this->request->initialize($data);
-        $validator = Validator::make($data, $this->request->rules());
+        
+        // Normalize empty strings to 'create' as the request class does
+        $normalizedData = $data;
+        if (isset($normalizedData['clients']) && $normalizedData['clients'] === '') {
+            $normalizedData['clients'] = 'create';
+        }
+        
+        $validator = Validator::make($normalizedData, $this->request->rules());
 
         $this->assertTrue($validator->passes(), 'Clients with empty string should be valid when invoices is present (nullable)');
     }

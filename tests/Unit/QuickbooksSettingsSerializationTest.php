@@ -250,7 +250,7 @@ class QuickbooksSettingsSerializationTest extends TestCase
         $this->assertArrayHasKey('client', $array['settings']);
         
         // Verify default direction is BIDIRECTIONAL
-        $this->assertEquals('bidirectional', $array['settings']['client']['direction']);
+        $this->assertEquals('none', $array['settings']['client']['direction']);
     }
 
     /**

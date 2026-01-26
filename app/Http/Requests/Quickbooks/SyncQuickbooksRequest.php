@@ -39,12 +39,15 @@ class SyncQuickbooksRequest extends FormRequest
     {
         return [
             'clients' => [
-                'present_with:invoices,quotes,payments',
+                'required_with:invoices,quotes,payments',
                 'nullable',
                 function ($attribute, $value, $fail) {
-                    // If value is provided and not empty, validate it
-                    if ($value !== null && $value !== '' && !in_array($value, ['email', 'name'])) {
-                        $fail('The ' . $attribute . ' must be one of: email, name.');
+                    // Normalize empty string to 'create' for validation
+                    $normalizedValue = ($value === '') ? 'create' : $value;
+                    
+                    // If value is provided (not null), validate it
+                    if ($normalizedValue !== null && !in_array($normalizedValue, ['email', 'name', 'create'])) {
+                        $fail('The ' . $attribute . ' must be one of: email, name, create.');
                     }
                 },
             ],
@@ -73,8 +76,35 @@ class SyncQuickbooksRequest extends FormRequest
     }
 
     /**
+     * Configure the validator instance.
+     * Normalize empty strings to 'create' before validation.
+     *
+     * @param  \Illuminate\Validation\Validator  $validator
+     * @return void
+     */
+    public function withValidator($validator)
+    {
+        // Normalize empty strings to 'create' BEFORE validation runs
+        // This ensures required_with sees a value instead of empty strings
+        $data = $validator->getData();
+        $fieldsToNormalize = ['clients', 'products', 'invoices', 'quotes', 'payments', 'vendors'];
+        
+        $normalizedData = $data;
+        foreach ($fieldsToNormalize as $field) {
+            if (isset($normalizedData[$field]) && $normalizedData[$field] === '') {
+                $normalizedData[$field] = 'create';
+            }
+        }
+        
+        // Update the validator's data BEFORE validation rules run
+        if ($normalizedData !== $data) {
+            $validator->setData($normalizedData);
+        }
+    }
+
+    /**
      * Prepare the data for validation.
-     * Convert empty strings to null for nullable fields.
+     * Convert empty strings to 'create' for nullable fields.
      *
      * @return void
      */
@@ -82,12 +112,12 @@ class SyncQuickbooksRequest extends FormRequest
     {
         $input = $this->all();
 
-        // Convert empty strings to null for nullable fields
-        $nullableFields = ['clients', 'products', 'invoices', 'quotes', 'payments', 'vendors'];
+        // Convert empty strings to 'create' for nullable fields
+        $fieldsToNormalize = ['clients', 'products', 'invoices', 'quotes', 'payments', 'vendors'];
         
-        foreach ($nullableFields as $field) {
+        foreach ($fieldsToNormalize as $field) {
             if (isset($input[$field]) && $input[$field] === '') {
-                $input[$field] = null;
+                $input[$field] = 'create';
             }
         }
 
