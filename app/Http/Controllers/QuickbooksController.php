@@ -14,9 +14,10 @@ namespace App\Http\Controllers;
 
 use App\Libraries\MultiDB;
 use Illuminate\Http\Response;
+use App\Services\Quickbooks\QuickbooksService;
+use App\Http\Requests\Quickbooks\SyncQuickbooksRequest;
 use App\Http\Requests\Quickbooks\ConfigQuickbooksRequest;
 use App\Http\Requests\Quickbooks\DisconnectQuickbooksRequest;
-use App\Http\Requests\Quickbooks\SyncQuickbooksRequest;
 
 class QuickbooksController extends BaseController
 {
@@ -53,7 +54,9 @@ class QuickbooksController extends BaseController
         $company = $user->company();
 
         $qb = new QuickbooksService($company);
-        $qb->sdk()->revokeAccessToken();
+        $rs = $qb->sdk()->revokeAccessToken();
+        
+        nlog($rs);
         
         $company->quickbooks = null;
         $company->save();

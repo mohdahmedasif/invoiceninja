@@ -69,7 +69,7 @@ class QuickbooksService
                 'ClientSecret' => config('services.quickbooks.client_secret'),
                 'auth_mode' => 'oauth2',
                 'scope' => "com.intuit.quickbooks.accounting",
-                'RedirectURI' => $this->testMode ? 'https://grok.romulus.com.au/quickbooks/authorized' : 'https://invoicing.co/quickbooks/authorized',
+                'RedirectURI' => $this->testMode ? 'https://qb.romulus.com.au/quickbooks/authorized' : 'https://invoicing.co/quickbooks/authorized',
                 'baseUrl' => $this->testMode ? CoreConstants::SANDBOX_DEVELOPMENT : CoreConstants::QBO_BASEURL,
             ];
 
@@ -133,6 +133,24 @@ class QuickbooksService
 
     //     return $this;
     // }
+
+    /**
+     * Refresh the service after OAuth token has been updated.
+     * This reloads the company from the database and reinitializes the SDK
+     * with the new access token.
+     *
+     * @return self
+     */
+    public function refresh(): self
+    {
+        // Reload company from database to get fresh token data
+        $this->company = $this->company->fresh();
+        
+        // Reinitialize the SDK with the updated token
+        $this->init();
+        
+        return $this;
+    }
 
     private function checkToken(): self
     {
