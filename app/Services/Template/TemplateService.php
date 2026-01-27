@@ -828,6 +828,11 @@ class TemplateService
 
             foreach ($refund['invoices'] as $refunded_invoice) {
                 $invoice = Invoice::withTrashed()->find($refunded_invoice['invoice_id']);
+
+                if (!$invoice) {
+                    continue;
+                }
+
                 $amount = Number::formatMoney($refunded_invoice['amount'], $payment->client);
                 $notes = ctrans('texts.status_partially_refunded_amount', ['amount' => $amount]);
 

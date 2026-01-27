@@ -61,6 +61,7 @@ use App\Http\Controllers\SystemLogController;
 use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ImportJsonController;
+use App\Http\Controllers\QuickbooksController;
 use App\Http\Controllers\SelfUpdateController;
 use App\Http\Controllers\TaskStatusController;
 use App\Http\Controllers\Bank\YodleeController;
@@ -336,8 +337,9 @@ Route::group(['middleware' => ['throttle:api', 'token_auth', 'valid_json','local
     Route::get('quote/{invitation_key}/download', [QuoteController::class, 'downloadPdf'])->name('quotes.downloadPdf');
     Route::get('quote/{invitation_key}/download_e_quote', [QuoteController::class, 'downloadEQuote'])->name('quotes.downloadEQuote');
 
-    Route::post('quickbooks/sync', [ImportQuickbooksController::class, 'sync'])->name('quickbooks.sync');
-    Route::post('quickbooks/configuration', [ImportQuickbooksController::class, 'configuration'])->name('quickbooks.configuration');
+    Route::post('quickbooks/sync', [QuickbooksController::class, 'sync'])->name('quickbooks.sync');
+    Route::post('quickbooks/configuration', [QuickbooksController::class, 'configuration'])->name('quickbooks.configuration');
+    Route::post('quickbooks/disconnect', [QuickbooksController::class, 'disconnect'])->name('quickbooks.disconnect');
 
     Route::resource('recurring_expenses', RecurringExpenseController::class);
     Route::post('recurring_expenses/bulk', [RecurringExpenseController::class, 'bulk'])->name('recurring_expenses.bulk');
