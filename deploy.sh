@@ -225,17 +225,23 @@ install_dependencies() {
     cd "$APP_PATH"
     
     if command_exists composer; then
+        # Clean vendor directory if it's in a broken state
+        if [ -d "vendor" ] && [ ! -f "vendor/autoload.php" ]; then
+            print_warning "Vendor directory appears broken, cleaning..."
+            rm -rf vendor
+        fi
+        
+        # Set composer to allow superuser (for root)
+        export COMPOSER_ALLOW_SUPERUSER=1
+        
         # Try normal install first
         composer install --no-dev --optimize-autoloader --no-interaction --no-progress 2>&1 || {
             print_warning "Composer install failed, trying with platform requirement ignore..."
             # If install fails, try with --ignore-platform-req for ext-redis (common issue)
             composer install --no-dev --optimize-autoloader --no-interaction --no-progress --ignore-platform-req=ext-redis 2>&1 || {
-                print_warning "Still failing, trying composer update..."
-                # Last resort: update composer.lock to match platform
-                COMPOSER_ALLOW_SUPERUSER=1 composer update --no-dev --optimize-autoloader --no-interaction --no-progress --ignore-platform-req=ext-redis 2>&1 || {
-                    print_error "Composer install/update failed"
-                    exit 1
-                }
+                print_error "Composer install failed. Please run manually:"
+                print_error "  COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis"
+                exit 1
             }
         }
         print_status "Composer dependencies installed"
