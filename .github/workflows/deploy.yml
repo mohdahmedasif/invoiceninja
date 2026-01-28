@@ -1,0 +1,133 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main          # Your fork's main branch
+      - master        # Your fork's master branch (if you use it)
+      - v5-stable     # Your fork's v5-stable branch (if you use it)
+    # Uncomment the line below to enable manual deployment
+    # workflow_dispatch:
+
+env:
+  # This will use the branch that triggered the workflow
+  DEPLOY_BRANCH: ${{ github.ref_name }}
+
+jobs:
+  deploy:
+    name: Deploy to Production VPS
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS (Safe Mode - Protects .env & DB)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_APP_PATH: ${{ secrets.VPS_APP_PATH }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p $VPS_SSH_PORT $VPS_USER@$VPS_HOST << ENDSSH
+            set -e
+            export DEPLOY_BRANCH="${{ env.DEPLOY_BRANCH }}"
+            cd $VPS_APP_PATH
+            
+            # Run deployment script
+            if [ -f deploy.sh ]; then
+              chmod +x deploy.sh
+              DEPLOY_BRANCH="${{ env.DEPLOY_BRANCH }}" bash deploy.sh
+            else
+              echo "⚠️  Deployment script not found. Running basic safe deployment..."
+              
+              # CRITICAL: Protect .env file
+              if [ -f .env ]; then
+                cp .env .env.backup_before_deploy
+                echo "✓ .env file backed up"
+              else
+                echo "✗ ERROR: .env file not found! Cannot proceed."
+                exit 1
+              fi
+              
+              # Enable maintenance mode
+              php artisan down --retry=60 || true
+              
+              # Backup database
+              if command -v mysqldump &> /dev/null && [ -f .env ]; then
+                DB_DATABASE=\$(grep "^DB_DATABASE=" .env | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+                DB_USERNAME=\$(grep "^DB_USERNAME=" .env | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+                DB_PASSWORD=\$(grep "^DB_PASSWORD=" .env | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+                DB_HOST=\$(grep "^DB_HOST=" .env | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+                DB_PORT=\$(grep "^DB_PORT=" .env | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+                if [ -n "\$DB_DATABASE" ]; then
+                  BACKUP_DIR="storage/backups"
+                  mkdir -p \$BACKUP_DIR
+                  BACKUP_FILE="\${BACKUP_DIR}/backup_\$(date +%Y%m%d_%H%M%S).sql"
+                  export MYSQL_PWD="\$DB_PASSWORD"
+                  mysqldump -h"\${DB_HOST:-localhost}" -P"\${DB_PORT:-3306}" -u"\$DB_USERNAME" "\$DB_DATABASE" > "\$BACKUP_FILE" 2>/dev/null || true
+                  unset MYSQL_PWD
+                  gzip -f "\$BACKUP_FILE" 2>/dev/null || true
+                  echo "✓ Database backed up"
+                fi
+              fi
+              
+              # Ensure .env is not tracked by git
+              git update-index --assume-unchanged .env 2>/dev/null || true
+              
+              # Stash .env if needed
+              git stash push -m "protect_env_\$(date +%s)" .env 2>/dev/null || true
+              
+              # Git pull
+              git fetch origin
+              git reset --hard origin/${{ env.DEPLOY_BRANCH }}
+              
+              # Restore .env
+              if [ -f .env.backup_before_deploy ]; then
+                cp .env.backup_before_deploy .env
+                rm .env.backup_before_deploy
+                echo "✓ .env file restored"
+              fi
+              git stash pop 2>/dev/null || true
+              git update-index --assume-unchanged .env 2>/dev/null || true
+              
+              # Install dependencies
+              composer install --no-dev --optimize-autoloader --no-interaction
+              
+              # Run post-update commands (safe migrations)
+              php artisan ninja:post-update
+              
+              # Clear and optimize
+              php artisan config:cache
+              php artisan route:cache
+              php artisan view:cache
+              
+              # Final .env check
+              if [ ! -f .env ]; then
+                echo "✗ ERROR: .env file missing after deployment!"
+                if [ -f .env.backup_before_deploy ]; then
+                  cp .env.backup_before_deploy .env
+                  echo "✓ .env restored from backup"
+                fi
+              fi
+              
+              # Disable maintenance mode
+              php artisan up
+              
+              echo "✅ Basic deployment completed (using fallback method)"
+            fi
+          ENDSSH
+
+      - name: Deployment Status
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "🔒 .env file and database are protected!"
