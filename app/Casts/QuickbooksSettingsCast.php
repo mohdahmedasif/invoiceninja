@@ -24,7 +24,29 @@ class QuickbooksSettingsCast implements CastsAttributes
         }
 
         $data = json_decode($value, true);
+        $data = $this->normalizeSettingsForHydration($data);
         return QuickbooksSettings::fromArray($data);
+    }
+
+    /**
+     * Normalize nested settings for hydration.
+     * income_account_map: int keys (Product::PRODUCT_TYPE_*), values QuickBooks account ID (string) or null (unset).
+     */
+    private function normalizeSettingsForHydration(array $data): array
+    {
+        if (! isset($data['settings']['income_account_map']) || ! is_array($data['settings']['income_account_map'])) {
+            return $data;
+        }
+
+        $out = [];
+        foreach ($data['settings']['income_account_map'] as $k => $v) {
+            if ($v === null || (is_string($v) && $v !== '')) {
+                $out[(int) $k] = $v;
+            }
+        }
+        $data['settings']['income_account_map'] = $out;
+
+        return $data;
     }
 
     public function set($model, string $key, $value, array $attributes)

@@ -63,7 +63,7 @@ class InvoiceTransformer extends BaseTransformer
                 }
             }
 
-            $line_items[] = [
+            $line_payload = [
                 'LineNum' => $line_num,
                 'DetailType' => 'SalesItemLineDetail',
                 'SalesItemLineDetail' => [
@@ -79,6 +79,12 @@ class InvoiceTransformer extends BaseTransformer
                 'Description' => $line_item->notes ?? '',
                 'Amount' => $line_item->line_total ?? ($line_item->cost * ($line_item->quantity ?? 1)),
             ];
+
+
+            //check here if we need to inject the income account reference
+            // $line_payload['AccountRef'] = ['value' => $income_account_qb_id];
+
+            $line_items[] = $line_payload;
 
             $line_num++;
         }
