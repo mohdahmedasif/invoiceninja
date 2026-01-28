@@ -96,18 +96,27 @@ create_backup() {
     
     # Backup database
     if [ -f "$ENV_FILE" ]; then
-        source "$ENV_FILE"
+        # Safely parse .env file (avoid sourcing to prevent command execution)
+        DB_DATABASE=$(grep "^DB_DATABASE=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+        DB_USERNAME=$(grep "^DB_USERNAME=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+        DB_PASSWORD=$(grep "^DB_PASSWORD=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+        DB_HOST=$(grep "^DB_HOST=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
+        DB_PORT=$(grep "^DB_PORT=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
         
         if command_exists mysqldump && [ -n "$DB_DATABASE" ]; then
             BACKUP_FILE="${BACKUP_DIR}/db_backup_$(date +%Y%m%d_%H%M%S).sql"
             
             print_status "Backing up database: $DB_DATABASE"
             
-            if [ -n "$DB_PASSWORD" ]; then
-                mysqldump -h"${DB_HOST:-localhost}" -P"${DB_PORT:-3306}" -u"$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" > "$BACKUP_FILE" 2>/dev/null || {
+            # Use environment variables for mysqldump to avoid password in command line
+            export MYSQL_PWD="$DB_PASSWORD"
+            if [ -n "$DB_PASSWORD" ] && [ "$DB_PASSWORD" != "null" ] && [ "$DB_PASSWORD" != "" ]; then
+                mysqldump -h"${DB_HOST:-localhost}" -P"${DB_PORT:-3306}" -u"$DB_USERNAME" "$DB_DATABASE" > "$BACKUP_FILE" 2>/dev/null || {
                     print_warning "Database backup failed, but continuing..."
+                    unset MYSQL_PWD
                     return 0
                 }
+                unset MYSQL_PWD
             else
                 mysqldump -h"${DB_HOST:-localhost}" -P"${DB_PORT:-3306}" -u"$DB_USERNAME" "$DB_DATABASE" > "$BACKUP_FILE" 2>/dev/null || {
                     print_warning "Database backup failed, but continuing..."
