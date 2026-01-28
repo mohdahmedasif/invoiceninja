@@ -43,13 +43,10 @@ class QuickbooksSync
     public QuickbooksSyncMap $expense;
 
     /**
-     * Map of product type id (Product::PRODUCT_TYPE_*) to QuickBooks income account ID.
-     * E.g. [2 => '123', 1 => '456']
-     * Null values indicate the account has not been configured for that product type.
-     *
-     * @var array<int, string|null>
+     * QuickBooks income account ID per product type.
+     * Use getAccountId(int $productTypeId) or the typed properties (physical, service, etc.).
      */
-    public array $income_account_map = [];
+    public IncomeAccountMap $income_account_map;
 
     public function __construct(array $attributes = [])
     {
@@ -62,30 +59,8 @@ class QuickbooksSync
         $this->product = new QuickbooksSyncMap($attributes['product'] ?? []);
         $this->payment = new QuickbooksSyncMap($attributes['payment'] ?? []);
         $this->expense = new QuickbooksSyncMap($attributes['expense'] ?? []);
-        $this->income_account_map = $attributes['income_account_map'] ?? [];
-    }
+        $this->income_account_map = new IncomeAccountMap($attributes['income_account_map'] ?? []);
 
-    /**
-     * Suggested default mapping of Product::PRODUCT_TYPE_* to QuickBooks income account IDs.
-     * Returns null for all types, indicating they need to be configured.
-     * Use when building UI defaults or onboarding; stored config overrides these.
-     *
-     * @return array<int, null>
-     */
-    public static function defaultProductTypeIncomeAccountMap(): array
-    {
-        return [
-            Product::PRODUCT_TYPE_PHYSICAL => null,
-            Product::PRODUCT_TYPE_SERVICE => null,
-            Product::PRODUCT_TYPE_DIGITAL => null,
-            Product::PRODUCT_TYPE_SHIPPING => null,
-            Product::PRODUCT_TYPE_EXEMPT => null,
-            Product::PRODUCT_TYPE_REDUCED_TAX => null,
-            Product::PRODUCT_TYPE_OVERRIDE_TAX => null,
-            Product::PRODUCT_TYPE_ZERO_RATED => null,
-            Product::PRODUCT_TYPE_REVERSE_TAX => null,
-            Product::PRODUCT_INTRA_COMMUNITY => null,
-        ];
     }
 
     public function toArray(): array
@@ -100,7 +75,7 @@ class QuickbooksSync
             'product' => $this->product->toArray(),
             'payment' => $this->payment->toArray(),
             'expense' => $this->expense->toArray(),
-            'income_account_map' => $this->income_account_map,
+            'income_account_map' => $this->income_account_map->toArray(),
         ];
     }
 }

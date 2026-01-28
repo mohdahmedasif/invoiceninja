@@ -169,6 +169,7 @@ class QuickbooksService
         }
 
         nlog('Quickbooks token expired and could not be refreshed => ' .$this->company->company_key);
+        
         throw new \Exception('Quickbooks token expired and could not be refreshed');
 
     }

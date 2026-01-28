@@ -187,16 +187,15 @@ class QuickbooksSettingsSerializationComparisonTest extends TestCase
         $this->assertEquals('bidirectional', $oldDecoded['settings']['client']['direction']);
         $this->assertEquals('bidirectional', $newDecoded['settings']['client']['direction']);
 
-        // Both produce equivalent results, but toArray() is explicit
-        $this->assertEquals(
-            json_encode($oldDecoded), 
-            json_encode($newDecoded),
-            'Both methods produce equivalent results, but toArray() is explicit and maintainable'
-        );
-        
-        // The key difference: toArray() gives explicit control
+        // toArray() is the canonical form for persistence: explicit control, consistent shape
         $this->assertIsArray($newArray, 'toArray() explicitly returns an array structure');
-        $this->assertIsString($newArray['settings']['client']['direction'], 
+        $this->assertIsString($newArray['settings']['client']['direction'],
             'toArray() explicitly converts enum to string value');
+
+        // income_account_map uses int keys (Product::PRODUCT_TYPE_*) in toArray() for storage
+        $this->assertArrayHasKey('income_account_map', $newDecoded['settings']);
+        $this->assertIsArray($newDecoded['settings']['income_account_map']);
+        $this->assertArrayHasKey(1, $newDecoded['settings']['income_account_map'],
+            'toArray() uses int keys for income_account_map (canonical stored format)');
     }
 }
