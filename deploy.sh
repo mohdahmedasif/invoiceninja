@@ -180,6 +180,12 @@ update_code() {
     # Get current branch
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     
+    # Check if DEPLOY_BRANCH exists in remote, if not use current branch
+    if ! git show-ref --verify --quiet refs/remotes/origin/$DEPLOY_BRANCH 2>/dev/null; then
+        print_warning "Branch $DEPLOY_BRANCH not found in remote, using current branch: $CURRENT_BRANCH"
+        DEPLOY_BRANCH="$CURRENT_BRANCH"
+    fi
+    
     # Checkout and pull
     if [ "$CURRENT_BRANCH" != "$DEPLOY_BRANCH" ]; then
         print_warning "Current branch is $CURRENT_BRANCH, switching to $DEPLOY_BRANCH"
