@@ -26,9 +26,9 @@ class ImportQuickbooksController extends BaseController
      *
      * Starts the Quickbooks authorization process.
      * 
-     * @param  mixed $request
+     * @param  AuthQuickbooksRequest $request
      * @param  string $token
-     * @return RedirectResponse
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function authorizeQuickbooks(AuthQuickbooksRequest $request, string $token)
     {
@@ -54,7 +54,7 @@ class ImportQuickbooksController extends BaseController
      * Handles the callback from Quickbooks after authorization.
      * 
      * @param  AuthorizedQuickbooksRequest $request
-     * @return RedirectResponse
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function onAuthorized(AuthorizedQuickbooksRequest $request)
     {

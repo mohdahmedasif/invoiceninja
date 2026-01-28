@@ -109,8 +109,7 @@ class QuickbooksSettingsSerializationTest extends TestCase
                 'client' => [
                     'direction' => SyncDirection::PULL->value,
                 ],
-                'default_income_account' => 'income_account_123',
-                'default_expense_account' => 'expense_account_456',
+               
             ],
         ]);
 
@@ -119,9 +118,7 @@ class QuickbooksSettingsSerializationTest extends TestCase
         // Verify nested QuickbooksSync structure
         $this->assertIsArray($array['settings']);
         $this->assertArrayHasKey('client', $array['settings']);
-        $this->assertArrayHasKey('default_income_account', $array['settings']);
-        $this->assertEquals('income_account_123', $array['settings']['default_income_account']);
-        $this->assertEquals('expense_account_456', $array['settings']['default_expense_account']);
+        $this->assertArrayHasKey('income_account_map', $array['settings']);
 
         // Verify nested QuickbooksSyncMap structure
         $this->assertIsArray($array['settings']['client']);
@@ -151,8 +148,6 @@ class QuickbooksSettingsSerializationTest extends TestCase
                 'product' => [
                     'direction' => SyncDirection::BIDIRECTIONAL->value,
                 ],
-                'default_income_account' => 'income_123',
-                'default_expense_account' => 'expense_456',
             ],
         ]);
 
@@ -184,8 +179,6 @@ class QuickbooksSettingsSerializationTest extends TestCase
 
         // Verify nested settings are preserved
         $this->assertInstanceOf(QuickbooksSync::class, $deserialized->settings);
-        $this->assertEquals('income_123', $deserialized->settings->default_income_account);
-        $this->assertEquals('expense_456', $deserialized->settings->default_expense_account);
 
         // Verify enum values are preserved correctly
         $this->assertInstanceOf(QuickbooksSyncMap::class, $deserialized->settings->client);

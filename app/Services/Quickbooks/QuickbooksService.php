@@ -69,7 +69,7 @@ class QuickbooksService
                 'ClientSecret' => config('services.quickbooks.client_secret'),
                 'auth_mode' => 'oauth2',
                 'scope' => "com.intuit.quickbooks.accounting",
-                'RedirectURI' => $this->testMode ? 'https://qb.romulus.com.au/quickbooks/authorized' : 'https://invoicing.co/quickbooks/authorized',
+                'RedirectURI' => config('services.quickbooks.redirect'),
                 'baseUrl' => $this->testMode ? CoreConstants::SANDBOX_DEVELOPMENT : CoreConstants::QBO_BASEURL,
             ];
 
@@ -169,6 +169,7 @@ class QuickbooksService
         }
 
         nlog('Quickbooks token expired and could not be refreshed => ' .$this->company->company_key);
+        
         throw new \Exception('Quickbooks token expired and could not be refreshed');
 
     }
