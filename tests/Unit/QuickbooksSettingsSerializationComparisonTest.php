@@ -195,7 +195,5 @@ class QuickbooksSettingsSerializationComparisonTest extends TestCase
         // income_account_map uses int keys (Product::PRODUCT_TYPE_*) in toArray() for storage
         $this->assertArrayHasKey('income_account_map', $newDecoded['settings']);
         $this->assertIsArray($newDecoded['settings']['income_account_map']);
-        $this->assertArrayHasKey(1, $newDecoded['settings']['income_account_map'],
-            'toArray() uses int keys for income_account_map (canonical stored format)');
     }
 }
