@@ -172,7 +172,7 @@ class Email implements ShouldQueue
 
         $this->email_object->whitelabel = $this->company->account->isPaid() ? true : false;
 
-        $this->email_object->logo = $this->company->present()->logo_base64($this->email_object->settings);
+        $this->email_object->logo = $this->email_object->settings->company_logo;
 
         $this->email_object->signature = $this->email_object->settings->email_signature;
 
