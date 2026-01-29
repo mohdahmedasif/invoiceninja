@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 APP_PATH="${VPS_APP_PATH:-$(pwd)}"
-BACKUP_DIR="${APP_PATH}/storage/backups"
+BACKUP_DIR="${BACKUP_DIR:-/home/invoice/backups}"
 LOG_FILE="${APP_PATH}/storage/logs/deployment.log"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 ENV_FILE="${APP_PATH}/.env"
@@ -130,6 +130,9 @@ create_backup() {
             
             # Remove old backups (keep last 7 days)
             find "$BACKUP_DIR" -name "db_backup_*.sql.gz" -mtime +7 -delete 2>/dev/null || true
+            
+            # Clean up old .env backups (keep last 7 days)
+            find "$BACKUP_DIR" -name ".env.backup_*" -mtime +7 -delete 2>/dev/null || true
         else
             print_warning "mysqldump not found or DB_DATABASE not set, skipping database backup"
         fi
@@ -150,9 +153,17 @@ enable_maintenance() {
 disable_maintenance() {
     log "Disabling maintenance mode..."
     cd "$APP_PATH"
-    php artisan up || {
-        print_error "Could not disable maintenance mode!"
-        return 1
+    
+    # Try to disable via artisan, but if vendor is broken, remove the file directly
+    php artisan up 2>/dev/null || {
+        print_warning "Could not disable via artisan (vendor might be broken), removing maintenance file directly..."
+        rm -f storage/framework/down 2>/dev/null || true
+        if [ ! -f storage/framework/down ]; then
+            print_status "Maintenance mode disabled (manual removal)"
+        else
+            print_error "Could not disable maintenance mode!"
+            return 1
+        fi
     }
     print_status "Maintenance mode disabled"
 }
@@ -234,12 +245,22 @@ install_dependencies() {
         # Set composer to allow superuser (for root)
         export COMPOSER_ALLOW_SUPERUSER=1
         
+        # Clean composer cache if downloads are corrupted
+        print_status "Cleaning composer cache..."
+        composer clear-cache 2>/dev/null || true
+        
         # Try normal install first
         composer install --no-dev --optimize-autoloader --no-interaction --no-progress 2>&1 || {
             print_warning "Composer install failed, trying with platform requirement ignore..."
             # If install fails, try with --ignore-platform-req for ext-redis (common issue)
-            composer install --no-dev --optimize-autoloader --no-interaction --no-progress --ignore-platform-req=ext-redis 2>&1 || {
-                print_error "Composer install failed. Please run manually:"
+            composer install --no-dev --optimize-autoloader --no-interaction --no-progress --ignore-platform-req=ext-redis --prefer-dist 2>&1 || {
+                print_error "Composer install failed. This might be due to:"
+                print_error "  - Network issues downloading packages"
+                print_error "  - Disk space issues"
+                print_error "  - Corrupted composer cache"
+                print_error ""
+                print_error "Please run manually on VPS:"
+                print_error "  composer clear-cache"
                 print_error "  COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis"
                 exit 1
             }

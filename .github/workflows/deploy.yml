@@ -70,7 +70,7 @@ jobs:
                 DB_HOST=\$(grep "^DB_HOST=" .env | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
                 DB_PORT=\$(grep "^DB_PORT=" .env | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
                 if [ -n "\$DB_DATABASE" ]; then
-                  BACKUP_DIR="storage/backups"
+                  BACKUP_DIR="/home/invoice/backups"
                   mkdir -p \$BACKUP_DIR
                   BACKUP_FILE="\${BACKUP_DIR}/backup_\$(date +%Y%m%d_%H%M%S).sql"
                   export MYSQL_PWD="\$DB_PASSWORD"
@@ -101,7 +101,12 @@ jobs:
               git update-index --assume-unchanged .env 2>/dev/null || true
               
               # Install dependencies
-              composer install --no-dev --optimize-autoloader --no-interaction
+              composer clear-cache || true
+              COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-redis --prefer-dist || {
+                echo "⚠️  Composer install failed, cleaning cache and retrying..."
+                composer clear-cache
+                COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-redis --prefer-dist
+              }
               
               # Run post-update commands (safe migrations)
               php artisan ninja:post-update
@@ -120,8 +125,12 @@ jobs:
                 fi
               fi
               
-              # Disable maintenance mode
-              php artisan up
+              # Disable maintenance mode (with fallback if vendor is broken)
+              php artisan up 2>/dev/null || {
+                echo "⚠️  Could not disable via artisan, removing maintenance file directly..."
+                rm -f storage/framework/down 2>/dev/null || true
+                echo "✓ Maintenance mode disabled"
+              }
               
               echo "✅ Basic deployment completed (using fallback method)"
             fi
