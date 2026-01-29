@@ -13,7 +13,6 @@ NC='\033[0m' # No Color
 
 # Configuration
 APP_PATH="${VPS_APP_PATH:-$(pwd)}"
-BACKUP_DIR="${BACKUP_DIR:-/home/invoice/backups}"
 LOG_FILE="${APP_PATH}/storage/logs/deployment.log"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 ENV_FILE="${APP_PATH}/.env"
@@ -44,7 +43,7 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Function to protect .env file
+# Function to protect .env file (using git mechanisms only)
 protect_env_file() {
     log "Protecting .env file..."
     
@@ -53,90 +52,23 @@ protect_env_file() {
         exit 1
     fi
     
-    # Backup .env before any operations
-    if [ -f "$ENV_FILE" ]; then
-        ENV_BACKUP="${BACKUP_DIR}/.env.backup_$(date +%Y%m%d_%H%M%S)"
-        cp "$ENV_FILE" "$ENV_BACKUP"
-        print_status ".env file backed up to $ENV_BACKUP"
-    fi
-    
-    # Store .env in a safe location temporarily
-    ENV_TEMP="${BACKUP_DIR}/.env.temp_$(date +%Y%m%d_%H%M%S)"
-    cp "$ENV_FILE" "$ENV_TEMP"
-    print_status ".env file protected (backup stored)"
+    # Ensure .env is not tracked by git
+    git update-index --assume-unchanged .env 2>/dev/null || true
+    print_status ".env file protected (git untracked)"
 }
 
-# Function to restore .env file
+# Function to restore .env file (from git stash if needed)
 restore_env_file() {
     log "Restoring .env file..."
     
-    # Find the most recent .env backup
-    ENV_BACKUP=$(ls -t "${BACKUP_DIR}"/.env.temp_* 2>/dev/null | head -1)
-    
-    if [ -n "$ENV_BACKUP" ] && [ -f "$ENV_BACKUP" ]; then
-        # Restore .env if it was accidentally modified
-        if [ ! -f "$ENV_FILE" ] || ! cmp -s "$ENV_FILE" "$ENV_BACKUP"; then
-            cp "$ENV_BACKUP" "$ENV_FILE"
-            print_status ".env file restored from backup"
-        fi
-        # Clean up temp file
-        rm -f "$ENV_BACKUP"
+    # Restore .env from stash if it was stashed
+    if git stash list | grep -q "protect_env"; then
+        git stash pop 2>/dev/null || true
+        print_status ".env file restored from git stash"
     fi
-}
-
-# Function to create database backup
-create_backup() {
-    log "Starting backup process..."
     
-    # Create backup directory
-    mkdir -p "$BACKUP_DIR"
-    
-    # Backup .env first
-    protect_env_file
-    
-    # Backup database
-    if [ -f "$ENV_FILE" ]; then
-        # Safely parse .env file (avoid sourcing to prevent command execution)
-        DB_DATABASE=$(grep "^DB_DATABASE=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
-        DB_USERNAME=$(grep "^DB_USERNAME=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
-        DB_PASSWORD=$(grep "^DB_PASSWORD=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
-        DB_HOST=$(grep "^DB_HOST=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
-        DB_PORT=$(grep "^DB_PORT=" "$ENV_FILE" | cut -d '=' -f2 | tr -d '"' | tr -d "'" | xargs)
-        
-        if command_exists mysqldump && [ -n "$DB_DATABASE" ]; then
-            BACKUP_FILE="${BACKUP_DIR}/db_backup_$(date +%Y%m%d_%H%M%S).sql"
-            
-            print_status "Backing up database: $DB_DATABASE"
-            
-            # Use environment variables for mysqldump to avoid password in command line
-            export MYSQL_PWD="$DB_PASSWORD"
-            if [ -n "$DB_PASSWORD" ] && [ "$DB_PASSWORD" != "null" ] && [ "$DB_PASSWORD" != "" ]; then
-                mysqldump -h"${DB_HOST:-localhost}" -P"${DB_PORT:-3306}" -u"$DB_USERNAME" "$DB_DATABASE" > "$BACKUP_FILE" 2>/dev/null || {
-                    print_warning "Database backup failed, but continuing..."
-                    unset MYSQL_PWD
-                    return 0
-                }
-                unset MYSQL_PWD
-            else
-                mysqldump -h"${DB_HOST:-localhost}" -P"${DB_PORT:-3306}" -u"$DB_USERNAME" "$DB_DATABASE" > "$BACKUP_FILE" 2>/dev/null || {
-                    print_warning "Database backup failed, but continuing..."
-                    return 0
-                }
-            fi
-            
-            # Compress backup
-            gzip -f "$BACKUP_FILE" 2>/dev/null || true
-            print_status "Database backed up to ${BACKUP_FILE}.gz"
-            
-            # Remove old backups (keep last 7 days)
-            find "$BACKUP_DIR" -name "db_backup_*.sql.gz" -mtime +7 -delete 2>/dev/null || true
-            
-            # Clean up old .env backups (keep last 7 days)
-            find "$BACKUP_DIR" -name ".env.backup_*" -mtime +7 -delete 2>/dev/null || true
-        else
-            print_warning "mysqldump not found or DB_DATABASE not set, skipping database backup"
-        fi
-    fi
+    # Ensure .env is not tracked
+    git update-index --assume-unchanged .env 2>/dev/null || true
 }
 
 # Function to enable maintenance mode
@@ -219,9 +151,6 @@ update_code() {
     }
     
     # Restore .env from stash if it was stashed
-    git stash list | grep -q "protect_env" && git stash pop 2>/dev/null || true
-    
-    # Ensure .env exists and restore if needed
     restore_env_file
     
     # Make sure .env is not tracked
@@ -279,7 +208,7 @@ run_migrations() {
     
     # Verify .env still exists
     if [ ! -f "$ENV_FILE" ]; then
-        print_error ".env file missing! Restoring from backup..."
+        print_error ".env file missing! Restoring from git stash..."
         restore_env_file
         if [ ! -f "$ENV_FILE" ]; then
             print_error "Cannot restore .env file. Aborting migrations."
@@ -375,14 +304,14 @@ main() {
         exit 1
     fi
     
-    # Create backup (includes .env protection)
-    create_backup
+    # Protect .env file
+    protect_env_file
     
     # Enable maintenance mode
     enable_maintenance
     
-    # Trap to ensure maintenance mode is disabled and .env is restored on exit
-    trap 'restore_env_file; disable_maintenance' EXIT
+    # Trap to ensure maintenance mode is disabled on exit
+    trap 'disable_maintenance' EXIT
     
     # Update code (with .env protection)
     update_code
@@ -425,7 +354,7 @@ main() {
     log "Deployment completed successfully!"
     log "=========================================="
     print_status "Invoice Ninja has been updated successfully!"
-    print_status ".env file and database are safe and unchanged!"
+    print_status ".env file is protected and unchanged!"
     
     # Show current version if available
     if [ -f "VERSION.txt" ]; then
